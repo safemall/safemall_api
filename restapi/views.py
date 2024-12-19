@@ -12,6 +12,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
+from django.views.decorators.csrf import csrf_exempt
 import secrets
 import random
 import uuid
@@ -21,7 +22,8 @@ from django.core.cache import cache
 
 #signup API for registering buyers
 class BuyerSignupApi(APIView):
- 
+    
+    @csrf_exempt
     def post(self, request):
         serializer = UserSerializer(data = request.data)
         User = get_user_model()
@@ -45,9 +47,11 @@ class BuyerSignupApi(APIView):
     
 
 
-#signup API for registering vendors 
+#signup API for registering vendors
+
 class VendorSignupApi(APIView):
 
+    @csrf_exempt
     def post(self, request):
         serializer = UserSerializer(data = request.data)
         User = get_user_model()
@@ -73,7 +77,10 @@ class VendorSignupApi(APIView):
 
     
 # login API for logging both vendors and buyers in
+
 class LoginApi(APIView):
+
+    @csrf_exempt
     def post(self, request):
         email = request.data['email']
         password = request.data['password']
@@ -124,6 +131,8 @@ class LoginApi(APIView):
 class VendorStoreApi(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+
+    @csrf_exempt
     def post(self, request):
         serializer = VendorSerializer(data=request.data)
         user = request.user
@@ -139,6 +148,8 @@ class VendorStoreApi(APIView):
 class ProductUploadView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+
+    @csrf_exempt
     def post(self, request):
         user = request.user
         vendor = get_object_or_404(VendorProfile, user=user)
@@ -171,7 +182,8 @@ class ProductDetailsView(APIView):
         product = self.get_object(product_id)
         serializer = ProductSerializer(product)
         return Response(serializer.data)
-    
+
+    @csrf_exempt    
     def post(self, request, product_id):
         quantity = int(request.data)
         product = self.get_object(product_id)
@@ -185,7 +197,8 @@ class ProductDetailsView(APIView):
             return Response(data)
         else:
             return Response({'message': 'product is out of stock'})
-        
+
+    @csrf_exempt        
     def put(self, request, product_id):
         product = self.get_object(product_id)
         serializer = ProductSerializer(product, data=request.data)
@@ -195,6 +208,7 @@ class ProductDetailsView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    @csrf_exempt
     def delete(self, request, product_id):
         product = self.get_object(product_id)
         product.delete()
@@ -218,6 +232,7 @@ class OrderProductView(APIView):
         }
         return Response(data)
     
+    @csrf_exempt
     def post(self, request, product_id):
         serializer = OrderDetailSerializer(data=request.data)
         product = get_object_or_404(Product, id=product_id)
@@ -324,6 +339,7 @@ class VendorPageView(APIView):
         return Response(data)
     
 
+
 class ProfileDetails(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -333,6 +349,7 @@ class ProfileDetails(APIView):
         serializer = UserSerializer(user)
         return Response(serializer.data)
     
+    @csrf_exempt
     def put(self, request):
         user = request.user
         serializer = UserSerializer(user, data = request.data)
@@ -352,7 +369,8 @@ class VendorStoreDetails(APIView):
         user = get_object_or_404(VendorProfile, user=request.user)
         serializer = VendorSerializer(user)
         return Response(serializer.data)
-    
+
+    @csrf_exempt    
     def put(self, request):
         user = get_object_or_404(VendorProfile, user=request.user)
         serializer = VendorSerializer(user, data=request.data)
