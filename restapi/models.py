@@ -13,8 +13,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(max_length=20, default='')
     first_name = models.CharField(max_length=200, default='')
     last_name = models.CharField(max_length=200, default='')
-    firebase_token = models.CharField(max_length=700, default='')
-    fcm_token = models.CharField(max_length=700, default='')
+    firebase_token = models.TextField(max_length=1000, default='')
+    fcm_token = models.TextField(max_length=200, default='')
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     groups = models.ManyToManyField(Group, related_name='user_set', blank=True)
@@ -60,7 +60,7 @@ class VendorProfile(models.Model):
     phone_number = models.CharField(max_length=15)
     vendor_id = models.UUIDField(default=uuid.uuid4())
     business_name = models.CharField(max_length=500)
-    business_description = models.CharField(max_length=500, default='')
+    business_description = models.TextField(max_length=1000, default='')
     profile_image = models.ImageField(upload_to='image')
     business_address = models.CharField(max_length=500)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -83,23 +83,28 @@ class Product(models.Model):
         ('household', 'household'),
         ('food', 'food')
     )
-    product_name = models.CharField(max_length=200)
-    product_description = models.TextField()
+    product_name = models.CharField(max_length=200, null=True, blank=True)
+    product_description = models.TextField(max_length=1000, null=True, blank=True)
     vendor = models.ForeignKey(VendorProfile, on_delete=models.CASCADE)
     vendor_identity = models.UUIDField(default='')
     vendor_name = models.CharField(max_length=500, null=True, blank=True)
     product_price = models.FloatField()
+    discounted_amount = models.FloatField(default=0)
+    discounted_price = models.FloatField(default=0)
+    percentage_discount = models.IntegerField(default=0)
     product_category = models.CharField(choices=CATEGORIES, default='', max_length=50)
     stock = models.IntegerField(default=0)
     quantity_sold = models.IntegerField(default=0)
-    product_image1 = models.ImageField(upload_to='image', null=True)
-    product_image2 = models.ImageField(upload_to='image', null=True)
-    product_image3 = models.ImageField(upload_to='image', null=True)
-    product_image4 = models.ImageField(upload_to='image', null=True)
+    product_image = models.ImageField(upload_to='image', null=True, blank=True, default='')
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.product_name
+    
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='image', default='', null=True, blank=True)
 
 
 class OrderDetail(models.Model):
@@ -113,6 +118,7 @@ class OrderDetail(models.Model):
     product_name = models.CharField(max_length=200, null=True, blank=True)
     product_price = models.FloatField()
     vendor_name = models.CharField(max_length=500, null=True, blank=True)
+    vendor_id = models.CharField(max_length=90,null=True, blank=True )
     product_quantity = models.IntegerField()
     total_price = models.FloatField()
     product_image = models.ImageField(upload_to='image', null=True)

@@ -27,6 +27,9 @@ urlpatterns = [
     path('productdetails/<int:product_id>/', views.ProductDetailsView.as_view(), name='product_details'),
 
 
+    path('productdetails/<int:product_id>/images/<int:image_id>/', views.ProductImageView.as_view(), name='delete_product_image'),
+
+
     # API endpoint for making an order and getting an order confirmation code
     path('orderproduct/<int:product_id>/', views.OrderProductView.as_view(), name='order_product'),
 

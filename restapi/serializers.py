@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.conf import settings
-from .models import BuyerProfile, VendorProfile, Product, OrderDetail
+from .models import BuyerProfile, VendorProfile, Product, OrderDetail, ProductImage
 from django.contrib.auth import get_user_model
 
 class UserSerializer(serializers.ModelSerializer):
@@ -41,11 +41,20 @@ class VendorSerializer(serializers.ModelSerializer):
         fields = ['business_name', 'phone_number', 'business_description', 'business_address', 'account_number', 'profile_image']
         read_only_fields = ['account_number']
 
-class ProductSerializer(serializers.ModelSerializer):
 
+class ProductImageSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'product', 'image']
+
+class ProductSerializer(serializers.ModelSerializer):
+    images = ProductImageSerializer(many=True, read_only=True)
+   
     class Meta:
         model = Product
-        fields = ['id', 'product_name', 'product_description', 'vendor_identity', 'vendor_name',  'product_price', 'product_category', 'stock', 'quantity_sold', 'product_image1', 'product_image2', 'product_image3', 'product_image4']
+        fields = ['id', 'product_name', 'product_description', 'discounted_price', 'percentage_discount', 'discounted_amount', 'vendor_identity', 'vendor_name',  'product_price', 'product_category', 'stock', 'quantity_sold', 
+                  'images']
         
         vendor_name = serializers.CharField(required=False)
         product_image1 = serializers.ImageField(allow_null=True)
@@ -54,7 +63,23 @@ class ProductSerializer(serializers.ModelSerializer):
         product_image4 = serializers.ImageField(allow_null=True)
         extra_kwargs = {
             'quantity_sold': {'required': False},
+            'discounted_amount': {'required': False},
+            'discounted_price':  {'required': False},
+            'percentage_discount': {'required': False},
         }
+
+        def to_internal_value(self, data):
+            product = Product
+            if 'discounted_amount' not in data and 'product_price' not in data:
+                return data
+            discount = data.get('discounted_amount')
+            price = data.get('product_price')
+            if discount | price:
+                if discount > price:
+                    raise serializers.ValidationError({'error': 'Product discount cannot be greater than product price'})
+                return super().to_internal_value(data)
+            
+        
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):

@@ -6,13 +6,12 @@ from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.http import Http404
 from .serializers import UserSerializer, BuyerSerializer, VendorSerializer, ProductSerializer, OrderDetailSerializer
-from .models import BuyerProfile, VendorProfile, Product, OrderDetail
+from .models import BuyerProfile, VendorProfile, Product, OrderDetail, ProductImage
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from django.views.decorators.csrf import csrf_exempt
 import secrets
 import random
 import uuid
@@ -23,7 +22,7 @@ from django.core.cache import cache
 #signup API for registering buyers
 class BuyerSignupApi(APIView):
     
-    @csrf_exempt
+    
     def post(self, request):
         serializer = UserSerializer(data = request.data)
         User = get_user_model()
@@ -51,7 +50,7 @@ class BuyerSignupApi(APIView):
 
 class VendorSignupApi(APIView):
 
-    @csrf_exempt
+    
     def post(self, request):
         serializer = UserSerializer(data = request.data)
         User = get_user_model()
@@ -80,7 +79,7 @@ class VendorSignupApi(APIView):
 
 class LoginApi(APIView):
 
-    @csrf_exempt
+    
     def post(self, request):
         email = request.data['email']
         password = request.data['password']
@@ -132,13 +131,14 @@ class VendorStoreApi(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-    @csrf_exempt
+    
     def post(self, request):
         serializer = VendorSerializer(data=request.data)
         user = request.user
         vendor = get_object_or_404(VendorProfile, user=user)
         vendor.business_name = request.data['business_name']
         vendor.business_address = request.data['business_address']
+        vendor.business_description = request.data['business_description']
         vendor.profile_image = request.data['profile_image']
         vendor.save()
         Vendorstore = VendorSerializer(vendor)
@@ -149,22 +149,33 @@ class ProductUploadView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-    @csrf_exempt
+    
     def post(self, request):
         user = request.user
         vendor = get_object_or_404(VendorProfile, user=user)
         name = vendor.business_name
         identity = vendor.vendor_id
         serializer = ProductSerializer(data=request.data)
-        if serializer.is_valid():
-            product = Product.objects.create(vendor=vendor, product_name=request.data['product_name'], stock=request.data['stock'], product_description=request.data['product_description'], product_category=request.data['product_category'], vendor_name=name,
-                                            vendor_identity=identity, product_price=request.data['product_price'], product_image1=request.data['product_image1'], product_image2=request.data['product_image2'],
-                                            product_image3=request.data['product_image3'], product_image4=request.data['product_image4'])
-            product.save()
-            product_serializer = ProductSerializer(product)
-            return Response(product_serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+        if request.data['discounted_amount'] > request.data['product_price']:
+            return Response({'message': 'product discount cannot be greater than product price'})
+        else:
+            if serializer.is_valid():
+                product = Product.objects.create(vendor=vendor, product_name=request.data['product_name'], discounted_amount=request.data['discounted_amount'], stock=request.data['stock'], product_description=request.data['product_description'], product_category=request.data['product_category'], vendor_name=name,
+                                                vendor_identity=identity, product_price=request.data['product_price'])
+                price = int(product.discounted_amount) / int(product.product_price)
+                discounted_price = int(product.product_price) - int(product.discounted_amount)
+                percentage = price * 100
+                product.percentage_discount = percentage
+                product.discounted_price = discounted_price
+                product.save()
+                images = request.FILES.getlist('uploaded_images')
+                for image in images:
+                    new_product_image = ProductImage.objects.create(product=product, image=image)
+                    
+                product_serializer = ProductSerializer(product)
+                return Response( product_serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
 
 
 class ProductDetailsView(APIView):
@@ -183,7 +194,7 @@ class ProductDetailsView(APIView):
         serializer = ProductSerializer(product)
         return Response(serializer.data)
 
-    @csrf_exempt    
+       
     def post(self, request, product_id):
         quantity = int(request.data)
         product = self.get_object(product_id)
@@ -196,25 +207,50 @@ class ProductDetailsView(APIView):
             }
             return Response(data)
         else:
-            return Response({'message': 'product is out of stock'})
+            return Response({'message': 'product stock is not up to the quantity inputted'})
 
-    @csrf_exempt        
-    def put(self, request, product_id):
+        
+    def patch(self, request, product_id):
         product = self.get_object(product_id)
         serializer = ProductSerializer(product, data=request.data)
+        if request.data['discounted_amount'] > request.data['product_price']:
+            return Response({'message': 'product discount cannot be greater than product price'})
+        else:
+            if serializer.is_valid():
+                serializer.save()
+                price = int(product.discounted_amount) / int(product.product_price)
+                discounted_price = int(product.product_price) - int(product.discounted_amount)
+                percentage = price * 100
+                product.percentage_discount = percentage
+                product.discounted_price = discounted_price
+                product.save()
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                image_id = request.data.get('image_id')
+                new_image = request.FILES.getlist('uploaded_images')
+                updated_image = request.FILES.get('updated_image')
+                if image_id and updated_image:
+                    existing_image = product.images.get(id=image_id)
+                    existing_image.image = updated_image
+                    existing_image.save()
+                else:
+                    for image in new_image:
+                        ProductImage.objects.create(product=product, image=image)
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    @csrf_exempt
+    
     def delete(self, request, product_id):
         product = self.get_object(product_id)
         product.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
         
 
+class ProductImageView(APIView):
+    def delete(self, request, product_id, image_id):
+        product = get_object_or_404(Product, id=product_id)
+        image = product.images.get(id=image_id)
+        image.delete()
+        return Response(status= status.HTTP_204_NO_CONTENT)
 
 class OrderProductView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -224,7 +260,7 @@ class OrderProductView(APIView):
         product = get_object_or_404(Product, id=product_id)
         serializer = ProductSerializer(product)
         quantity = cache.get(product_id)
-        total_price = product.product_price * quantity
+        total_price = int(product.discounted_price) * int(quantity)
         data = {
             'product': serializer.data,
             'total_price': total_price,
@@ -232,20 +268,21 @@ class OrderProductView(APIView):
         }
         return Response(data)
     
-    @csrf_exempt
+    
     def post(self, request, product_id):
         serializer = OrderDetailSerializer(data=request.data)
         product = get_object_or_404(Product, id=product_id)
         name = product.product_name
-        price = product.product_price
+        price = product.discounted_price
         image = product.product_image1
         vendor = product.vendor_name
+        vendor_id = product.vendor_identity
         quantity = cache.get(product_id)
         total_sum = price*quantity
         if serializer.is_valid():
             
                 order = OrderDetail.objects.create(user = request.user, order_id = uuid.uuid4(), order_otp_token = secrets.token_hex(4), first_name=request.data['first_name'], last_name=request.data['last_name'], address=request.data['address'], phone_number=request.data['phone_number'], email_address=request.data['email_address'], 
-                                                product_name=name, product_price=price, product_image=image, vendor_name=vendor, product_quantity=quantity, total_price = total_sum)      
+                                                product_name=name, product_price=price, product_image=image, vendor_name=vendor, vendor_id =vendor_id, product_quantity=quantity, total_price = total_sum)      
                 order.save()
                 order_serializer = OrderDetailSerializer(order)
                 product.stock -= quantity
@@ -274,7 +311,7 @@ class FoodPageView(APIView):
 
 class FootwearsPageView(APIView):
     def get(self, request):
-        footwearpage = Product.objects.filter(product_category='footwear')
+        footwearpage = Product.objects.filter(product_category='footwears')
         footwearserializer = ProductSerializer(footwearpage, many=True)
         return Response(footwearserializer.data)
     
@@ -349,7 +386,7 @@ class ProfileDetails(APIView):
         serializer = UserSerializer(user)
         return Response(serializer.data)
     
-    @csrf_exempt
+    
     def put(self, request):
         user = request.user
         serializer = UserSerializer(user, data = request.data)
@@ -370,7 +407,7 @@ class VendorStoreDetails(APIView):
         serializer = VendorSerializer(user)
         return Response(serializer.data)
 
-    @csrf_exempt    
+        
     def put(self, request):
         user = get_object_or_404(VendorProfile, user=request.user)
         serializer = VendorSerializer(user, data=request.data)
@@ -389,8 +426,12 @@ class SearchProduct(APIView):
         search_query = request.GET.get('search')
         if search_query is not None:
             product = Product.objects.filter(product_name__icontains=search_query) | Product.objects.filter(vendor_name__icontains=search_query)
+            if not product:
+                return Response({'message': f'No result found for {search_query}'}, status=status.HTTP_404_NOT_FOUND)
+            print(product)
             serializer = ProductSerializer(product, many=True)
             return Response(serializer.data)
         else:
             return Response({'message': 'Please provide a search query'})
-    
+
+
