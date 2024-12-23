@@ -29,6 +29,7 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['Safemall.pythonanywhere.com', '127.0.0.1']
 
+CSRF_TRUSTED_ORIGINS = ['https://safemall.pythonanywhere.com']
 
 # Application definition
 
