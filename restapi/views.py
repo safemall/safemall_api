@@ -5,17 +5,19 @@ from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.http import Http404
-from .serializers import UserSerializer, BuyerSerializer, VendorSerializer, ProductSerializer, OrderDetailSerializer
-from .models import BuyerProfile, VendorProfile, Product, OrderDetail, ProductImage
+from .serializers import UserSerializer, BuyerSerializer, VendorSerializer, ProductSerializer, OrderDetailSerializer, ProductImageSerializer, ProductReviewSerializer
+from .models import BuyerProfile, VendorProfile, Product, OrderDetail, ProductImage, ProductReview
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
+from django.db.models.fields.files import ImageFieldFile
 import secrets
 import random
 import uuid
 from django.core.cache import cache
+from django.db.models import Avg
 # Create your views here.
 
 
@@ -64,7 +66,7 @@ class VendorSignupApi(APIView):
                 vendor.save()
                 token = Token.objects.create(user=vendor)
                 token.save()
-                vendor_profile = VendorProfile.objects.create(user=vendor, business_name='', profile_image='', account_number= '2' + str(uuid.uuid4().int)[:10-len('2')], business_address='', phone_number=request.data['phone_number'])
+                vendor_profile = VendorProfile.objects.create(user=vendor, business_name='', profile_image='', account_number= '2' + str(uuid.uuid4().int)[:10-len('2')], business_address='', business_phone_number='')
                 vendor_profile.save()
                 data = {
                     'token': token.key,
@@ -131,6 +133,11 @@ class VendorStoreApi(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
+
+    def get(self, request):
+        user = get_object_or_404(VendorProfile, user=request.user)
+        serializer = VendorSerializer(user)
+        return Response(serializer.data)
     
     def post(self, request):
         serializer = VendorSerializer(data=request.data)
@@ -139,10 +146,20 @@ class VendorStoreApi(APIView):
         vendor.business_name = request.data['business_name']
         vendor.business_address = request.data['business_address']
         vendor.business_description = request.data['business_description']
-        vendor.profile_image = request.data['profile_image']
+        vendor.profile_image = request.FILES.get('profile_image', None)
+        vendor.business_phone_number = request.data['business_phone_number']
         vendor.save()
         Vendorstore = VendorSerializer(vendor)
         return Response(Vendorstore.data, status=status.HTTP_201_CREATED)
+    
+    def put(self, request):
+        user = get_object_or_404(VendorProfile, user=request.user)
+        serializer = VendorSerializer(user, data=request.data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
 class ProductUploadView(APIView):
@@ -155,12 +172,13 @@ class ProductUploadView(APIView):
         vendor = get_object_or_404(VendorProfile, user=user)
         name = vendor.business_name
         identity = vendor.vendor_id
+        vendor_image = vendor.profile_image
         serializer = ProductSerializer(data=request.data)
-        if request.data['discounted_amount'] > request.data['product_price']:
+        if int(request.data['discounted_amount']) > int(request.data['product_price']):
             return Response({'message': 'product discount cannot be greater than product price'})
         else:
             if serializer.is_valid():
-                product = Product.objects.create(vendor=vendor, product_name=request.data['product_name'], discounted_amount=request.data['discounted_amount'], stock=request.data['stock'], product_description=request.data['product_description'], product_category=request.data['product_category'], vendor_name=name,
+                product = Product.objects.create(vendor=vendor, product_name=request.data['product_name'], vendor_image=vendor_image, discounted_amount=request.data['discounted_amount'], stock=request.data['stock'], product_description=request.data['product_description'], product_category=request.data['product_category'], vendor_name=name,
                                                 vendor_identity=identity, product_price=request.data['product_price'])
                 price = int(product.discounted_amount) / int(product.product_price)
                 discounted_price = int(product.product_price) - int(product.discounted_amount)
@@ -196,11 +214,11 @@ class ProductDetailsView(APIView):
 
        
     def post(self, request, product_id):
-        quantity = int(request.data)
+        quantity = int(request.data['quantity'])
         product = self.get_object(product_id)
         serializer = ProductSerializer(product)
-        if quantity < product.stock:
-            cache.set(product_id, quantity, 60*60*60)
+        if int(quantity) < int(product.stock):
+            cache.set(product_id, quantity, 3600)
             data = {
                 'product': serializer.data,
                 'quantity': quantity
@@ -213,7 +231,7 @@ class ProductDetailsView(APIView):
     def patch(self, request, product_id):
         product = self.get_object(product_id)
         serializer = ProductSerializer(product, data=request.data)
-        if request.data['discounted_amount'] > request.data['product_price']:
+        if int(request.data['discounted_amount']) > int(request.data['product_price']):
             return Response({'message': 'product discount cannot be greater than product price'})
         else:
             if serializer.is_valid():
@@ -251,6 +269,7 @@ class ProductImageView(APIView):
         image = product.images.get(id=image_id)
         image.delete()
         return Response(status= status.HTTP_204_NO_CONTENT)
+    
 
 class OrderProductView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -274,20 +293,23 @@ class OrderProductView(APIView):
         product = get_object_or_404(Product, id=product_id)
         name = product.product_name
         price = product.discounted_price
-        image = product.product_image1
+        order_image = ProductImage.objects.filter(product=product).first()
         vendor = product.vendor_name
         vendor_id = product.vendor_identity
         quantity = cache.get(product_id)
-        total_sum = price*quantity
+        if quantity == None:
+            return Response({'message': 'cache timeout'})
+        total_sum = price* int(quantity)
         if serializer.is_valid():
             
                 order = OrderDetail.objects.create(user = request.user, order_id = uuid.uuid4(), order_otp_token = secrets.token_hex(4), first_name=request.data['first_name'], last_name=request.data['last_name'], address=request.data['address'], phone_number=request.data['phone_number'], email_address=request.data['email_address'], 
-                                                product_name=name, product_price=price, product_image=image, vendor_name=vendor, vendor_id =vendor_id, product_quantity=quantity, total_price = total_sum)      
+                                                product_name=name, product_image = order_image.image, product_price=price, vendor_name=vendor, vendor_id =vendor_id, product_quantity=quantity, total_price = total_sum)      
                 order.save()
-                order_serializer = OrderDetailSerializer(order)
-                product.stock -= quantity
-                product.quantity_sold += quantity
+                order_serializer = OrderDetailSerializer(order)                
+                product.stock -= int(quantity)
+                product.quantity_sold += int(quantity)
                 product.save()
+                
                 return Response(order_serializer.data, status=status.HTTP_201_CREATED)
                 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -296,7 +318,7 @@ class OrderProductView(APIView):
 
 class ClothesPageView(APIView):
     def get(self, request):
-        clothpage = Product.objects.filter(product_category='clothes')
+        clothpage = Product.objects.filter(product_category='clothes').order_by('-uploaded_at')
         clothserializer = ProductSerializer(clothpage, many=True)
         return Response(clothserializer.data)
     
@@ -304,35 +326,35 @@ class ClothesPageView(APIView):
 
 class FoodPageView(APIView):
     def get(self, request):
-        foodpage = Product.objects.filter(product_category='food')
+        foodpage = Product.objects.filter(product_category='food').order_by('-uploaded_at')
         foodserializer = ProductSerializer(foodpage, many=True)
         return Response(foodserializer.data)
     
 
 class FootwearsPageView(APIView):
     def get(self, request):
-        footwearpage = Product.objects.filter(product_category='footwears')
+        footwearpage = Product.objects.filter(product_category='footwears').order_by('-uploaded_at')
         footwearserializer = ProductSerializer(footwearpage, many=True)
         return Response(footwearserializer.data)
     
 
 class AccessoriesPageView(APIView):
     def get(self, request):
-        accessoriespage = Product.objects.filter(product_category='accessories')
+        accessoriespage = Product.objects.filter(product_category='accessories').order_by('-uploaded_at')
         accessoriesserializer = ProductSerializer(accessoriespage, many=True)
         return Response(accessoriesserializer.data)
     
 
 class BeautyPageView(APIView):
     def get(self, request):
-        beautypage = Product.objects.filter(product_category='beauty')
+        beautypage = Product.objects.filter(product_category='beauty').order_by('-uploaded_at')
         beautyserializer = ProductSerializer(beautypage, many=True)
         return Response(beautyserializer.data)
     
 
 class HouseholdPageView(APIView):
     def get(self, request):
-        householdpage = Product.objects.filter(product_category='household')
+        householdpage = Product.objects.filter(product_category='household').order_by('-uploaded_at')
         householdserializer = ProductSerializer(householdpage, many=True)
         return Response(householdserializer.data)
     
@@ -366,12 +388,17 @@ class FeaturedProductView(APIView):
 class VendorPageView(APIView):
     def get(self, request, vendor_id):
         vendor = get_object_or_404(VendorProfile, vendor_id=vendor_id)
-        product = Product.objects.filter(vendor_identity=vendor_id)
+        product = Product.objects.filter(vendor_identity=vendor_id).order_by('-uploaded_at')
+        value = ProductReview.objects.filter(vendor_id=vendor_id).aggregate(Avg('rating'))['rating__avg']
+        vendor_rating = 1.0
+        if value is not None:
+            vendor_rating = round(value, 1)
         vendor_serializer = VendorSerializer(vendor)
         product_serializer = ProductSerializer(product, many=True)
         data = {
             'vendor_data': vendor_serializer.data,
-            'product_data': product_serializer.data
+            'vendor_rating': vendor_rating,
+            'product_data': product_serializer.data            
         }
         return Response(data)
     
@@ -389,35 +416,23 @@ class ProfileDetails(APIView):
     
     def put(self, request):
         user = request.user
-        serializer = UserSerializer(user, data = request.data)
+        data = request.data.copy()
+        data.pop('profile_image', None)
+        image = request.FILES.getlist('profile_image')
+        if image:
+            image = image[0]
+        serializer = UserSerializer(user, data=data)
         
         if serializer.is_valid():
+            if image:
+                user.profile_image = image
+                user.save()
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+          
     
-
-class VendorStoreDetails(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        user = get_object_or_404(VendorProfile, user=request.user)
-        serializer = VendorSerializer(user)
-        return Response(serializer.data)
-
-        
-    def put(self, request):
-        user = get_object_or_404(VendorProfile, user=request.user)
-        serializer = VendorSerializer(user, data=request.data)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
 class SearchProduct(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -435,3 +450,90 @@ class SearchProduct(APIView):
             return Response({'message': 'Please provide a search query'})
 
 
+
+class ProductReviewView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, product_id):
+        product = get_object_or_404(Product, id=product_id)
+        review = ProductReview.objects.filter(product=product).order_by('-created_at')
+        value = ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg']
+        rating_avg = 0.0
+    
+        if value is not None:
+            rating_avg = round(value, 1)
+            serializer = ProductReviewSerializer(review, many=True)
+            total_number = review.count()
+            data = {
+                'reviews': serializer.data,
+                'total': total_number,
+                'average rating': rating_avg
+            }
+            return Response(data)
+        else:
+            return Response({'message': 'No review(s) yet, be the first to drop a review'})
+        
+            
+
+    def post(self, request, product_id):
+        user = request.user
+        image = user.profile_image
+        first_name = user.first_name
+        last_name = user.last_name
+        product = get_object_or_404(Product, id=product_id)
+        vendor_id = product.vendor_identity
+        review = ProductReview.objects.create(user=user, product=product, vendor_id=vendor_id, first_name=first_name, last_name=last_name, image=image, rating=request.data['rating'], review=request.data['review'])
+        review.save()
+
+        value = round(ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg'], 1)
+        product.average_rating = value
+        product.save()
+        serializer = ProductReviewSerializer(review)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+
+class VendorOrderView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        vendor = get_object_or_404(VendorProfile, user=user)
+        vendor_id = vendor.vendor_id
+        vendor_order = OrderDetail.objects.filter(vendor_id=vendor_id).order_by('-created_at')
+        if vendor_order:
+            serializer = OrderDetailSerializer(vendor_order, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({'message': 'you have no order yet'})
+        
+
+class BuyerOrderView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        order = OrderDetail.objects.filter(user=user).order_by('-created_at')
+        if order:
+            serializer = OrderDetailSerializer(order, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({'message': 'you have not made any order yet'})
+        
+
+class InventoryView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        vendor = get_object_or_404(VendorProfile, user=user)
+        vendor_id = vendor.vendor_id
+        product = Product.objects.filter(vendor_identity=vendor_id).order_by('-uploaded_at')
+        if product:
+            serializer = ProductSerializer(product, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({'message': 'you have no inventory yet'})

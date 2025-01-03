@@ -15,7 +15,7 @@ urlpatterns = [
     path('vendorsignup/', views.VendorSignupApi.as_view(), name='vendor_signup'),
 
 
-    # API endpoint for opening vendor store after registration
+    # API endpoint for opening, getting and updating vendor store after registration
     path('vendorstore/', views.VendorStoreApi.as_view(), name='vendor_store'),
 
 
@@ -77,11 +77,23 @@ urlpatterns = [
     #API endpoint for viewing profile details
     path('profiledetails/', views.ProfileDetails.as_view(), name='profile_details'),
 
-
-    #API endpoint for viewing buyer profile details
-    path('vendorstoredetails/', views.VendorStoreDetails.as_view(), name='vendor_store_details'),
-
     
     #API endpoint for searching products based on product_name or vendor_name
-    path('search/', views.SearchProduct.as_view(), name='search_product')
+    path('search/', views.SearchProduct.as_view(), name='search_product'),
+
+
+    #API endpoint for getting and posting product reviews
+    path('productreview/<int:product_id>/', views.ProductReviewView.as_view(), name='product_review'),
+
+
+    #API endpoint for getting orders made to a vendor
+    path('vendororders/', views.VendorOrderView.as_view(), name='vendor_order'),
+
+
+    #API endpoint for getting orders made by a buyer
+    path('buyerorders/', views.BuyerOrderView.as_view(), name='buyer_orders'),
+
+
+    #API endpoint for viewing products inventories
+    path('inventories/', views.InventoryView.as_view(), name='inventories')
 ]

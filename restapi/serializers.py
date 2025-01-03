@@ -1,16 +1,30 @@
 from rest_framework import serializers
 from django.conf import settings
-from .models import BuyerProfile, VendorProfile, Product, OrderDetail, ProductImage
+from .models import BuyerProfile, VendorProfile, Product, OrderDetail, ProductImage, ProductReview
 from django.contrib.auth import get_user_model
+from django.utils import timesince
+
+
+class UnwrappedListField(serializers.Field):
+    def to_representation(self, data):
+        if isinstance(data, list):
+            return data[0]
+        return data
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(required=False)
+    profile_image = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
+    fcm_token = serializers.CharField(required=False)
+    phone_number = serializers.CharField(required=False)
+    firebase_token = serializers.CharField(required=False)
 
     class Meta:
         user = get_user_model()
         model = user
-        fields = ['id','phone_number', 'firebase_token', 'fcm_token', 'email', 'first_name', 'last_name', 'password']
-        
+        fields = ['id','phone_number', 'firebase_token', 'profile_image', 'fcm_token', 'email', 'first_name', 'last_name', 'password']
+    
     def to_internal_value(self, data):
         User = get_user_model()
         if 'email' not in data and 'password' not in data:
@@ -20,6 +34,13 @@ class UserSerializer(serializers.ModelSerializer):
             if User.objects.filter(email=email).exists():
                 raise serializers.ValidationError({'error': 'email already exists'})
             return super().to_internal_value(data)
+        
+    def update(self, instance, validated_data):
+        for key, value in validated_data.items():
+            if isinstance(value, list) and len(value) == 1:
+                validated_data[key] = value[0]
+        return super().update(instance, validated_data)     
+    
         
 
 class BuyerSerializer(serializers.ModelSerializer):
@@ -33,12 +54,12 @@ class VendorSerializer(serializers.ModelSerializer):
     profile_image = serializers.ImageField(required=False, allow_null=True)
     business_address = serializers.CharField(required=False)
     business_description = serializers.CharField(required=False)
-    phone_number = serializers.CharField(required=False)
+    business_phone_number = serializers.CharField(required=False)
     business_name = serializers.CharField(required=False)
 
     class Meta:
         model = VendorProfile
-        fields = ['business_name', 'phone_number', 'business_description', 'business_address', 'account_number', 'profile_image']
+        fields = ['business_name', 'business_phone_number', 'business_description', 'business_address', 'account_number', 'profile_image']
         read_only_fields = ['account_number']
 
 
@@ -53,14 +74,11 @@ class ProductSerializer(serializers.ModelSerializer):
    
     class Meta:
         model = Product
-        fields = ['id', 'product_name', 'product_description', 'discounted_price', 'percentage_discount', 'discounted_amount', 'vendor_identity', 'vendor_name',  'product_price', 'product_category', 'stock', 'quantity_sold', 
+        fields = ['id', 'product_name', 'average_rating', 'product_description', 'discounted_price', 'percentage_discount', 'discounted_amount', 'vendor_identity', 'vendor_name', 'vendor_image',  'product_price', 'product_category', 'stock', 'quantity_sold', 'uploaded_at',
                   'images']
         
         vendor_name = serializers.CharField(required=False)
-        product_image1 = serializers.ImageField(allow_null=True)
-        product_image2 = serializers.ImageField(allow_null=True)
-        product_image3 = serializers.ImageField(allow_null=True)
-        product_image4 = serializers.ImageField(allow_null=True)
+       
         extra_kwargs = {
             'quantity_sold': {'required': False},
             'discounted_amount': {'required': False},
@@ -86,13 +104,21 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = OrderDetail
-        fields = ['order_id', 'first_name', 'last_name', 'address', 'email_address', 'phone_number', 'product_name', 'product_price', 'vendor_name', 'product_quantity', 'total_price', 'product_image', 'order_otp_token', 'delivered', 'created_at']
+        fields = ['order_id', 'first_name', 'last_name', 'address', 'email_address', 'phone_number', 'product_name', 'product_price', 'product_image', 'vendor_name', 'product_quantity', 'total_price', 'order_otp_token', 'delivered', 'created_at']
 
-        vendor_name = serializers.CharField(required=False)
-        product_image = serializers.ImageField(allow_null=True)
+        vendor_name = serializers.CharField(required=False)   
         product_name = serializers.CharField(required=False)
+        product_image = serializers.ImageField(required=False, allow_null=True)
         extra_kwargs = {
             'product_price': {'required': False},
             'product_quantity': {'required': False},
             'total_price': {'required': False}
         }
+
+class ProductReviewSerializer(serializers.ModelSerializer):
+    
+
+    class Meta:
+        model = ProductReview
+        fields = ['id', 'user', 'product', 'first_name', 'last_name', 'rating', 'review', 'image', 'created_at']
+        read_only_fields = ['user', 'created_at', 'product', 'first_name', 'last_name', 'image']

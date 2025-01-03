@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
 from .forms import CustomUserCreationForm, CustomUserChangeForm
-from .models import CustomUser, BuyerProfile, VendorProfile, OrderDetail, Product
+from .models import CustomUser, BuyerProfile, VendorProfile, OrderDetail, Product, ProductImage, ProductReview
 
 # Register your models here.
 
@@ -32,8 +32,36 @@ class CustomUserAdmin(UserAdmin):
     ordering = ("email",)
 
 
+class BuyerDisplay(admin.ModelAdmin):
+    list_display = ['first_name', 'email', 'account_number', 'created_at']
+    readonly_fields = ['first_name', 'email', 'account_number', 'last_name', 'phone_number', 'user']
+
+
+class VendorDisplay(admin.ModelAdmin):
+    list_display = ['business_name', 'vendor_id', 'account_number', 'created_at']
+    readonly_fields = ['business_name', 'profile_image', 'account_number', 'vendor_id', 'business_address', 'business_description', 'business_phone_number', 'user']
+
+
+class ProductDisplay(admin.ModelAdmin):
+    list_display = ['product_name', 'vendor_name', 'product_price', 'uploaded_at']
+    readonly_fields = ['product_name', 'product_description', 'vendor', 'vendor_identity', 'vendor_name', 'product_price', 'discounted_amount', 'discounted_price',
+                       'percentage_discount', 'product_category', 'stock', 'quantity_sold', 'vendor_image']
+
+
+class OrderDisplay(admin.ModelAdmin):
+    list_display = ['first_name', 'order_id', 'product_name', 'created_at']
+    readonly_fields = ['user', 'order_id', 'first_name', 'last_name', 'address', 'phone_number', 'email_address', 'product_name', 'product_price', 'vendor_name', 'vendor_id',
+                       'product_quantity', 'product_image', 'total_price', 'order_otp_token', 'delivered']
+
+
+class ProductReviewDisplay(admin.ModelAdmin):
+    list_display = ['first_name', 'rating', 'review', 'created_at']
+    readonly_fields = ['first_name', 'last_name', 'product', 'user', 'vendor_id', 'rating', 'review', 'image']
+
 admin.site.register(CustomUser, CustomUserAdmin)
-admin.site.register(BuyerProfile)
-admin.site.register(VendorProfile)
-admin.site.register(OrderDetail)
-admin.site.register(Product)
+admin.site.register(BuyerProfile, BuyerDisplay)
+admin.site.register(VendorProfile, VendorDisplay)
+admin.site.register(OrderDetail, OrderDisplay)
+admin.site.register(Product, ProductDisplay)
+admin.site.register(ProductImage)
+admin.site.register(ProductReview, ProductReviewDisplay)

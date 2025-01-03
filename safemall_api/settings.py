@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-z=cqgca-z)!z_w0kevxp@ado#@2g-oja$9o@pyudvk!z21o*-!'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['Safemall.pythonanywhere.com', '127.0.0.1']
 
@@ -142,7 +142,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 CACHES = {
     'default':{
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'TIMEOUT': 60*60*60
+        'TIMEOUT': 3600
     }
 }
 
