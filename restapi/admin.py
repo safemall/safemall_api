@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
 from .forms import CustomUserCreationForm, CustomUserChangeForm
-from .models import CustomUser, BuyerProfile, VendorProfile, OrderDetail, Product, ProductImage, ProductReview
+from .models import CustomUser, BuyerProfile, TransactionPercentage, VendorProfile, OrderDetail, Product, ProductImage, ProductReview,Wallet, Pending, TransactionHistory
 
 # Register your models here.
 
@@ -51,12 +51,31 @@ class ProductDisplay(admin.ModelAdmin):
 class OrderDisplay(admin.ModelAdmin):
     list_display = ['first_name', 'order_id', 'product_name', 'created_at']
     readonly_fields = ['user', 'order_id', 'first_name', 'last_name', 'address', 'phone_number', 'email_address', 'product_name', 'product_price', 'vendor_name', 'vendor_id',
-                       'product_quantity', 'product_image', 'total_price', 'order_otp_token', 'delivered']
+                       'product_quantity', 'product_image', 'total_price', 'order_otp_token']
 
 
 class ProductReviewDisplay(admin.ModelAdmin):
     list_display = ['first_name', 'rating', 'review', 'created_at']
     readonly_fields = ['first_name', 'last_name', 'product', 'user', 'vendor_id', 'rating', 'review', 'image']
+
+
+class WalletDisplay(admin.ModelAdmin):
+    list_display = ['first_name', 'last_name', 'account_number', 'funds']
+    #readonly_fields = ['user','first_name', 'last_name', 'account_number']
+
+
+class PendingDisplay(admin.ModelAdmin):
+    list_display = ['order_id', 'otp_token', 'amount', 'created_at']
+
+
+
+class TransactionHistoryDisplay(admin.ModelAdmin):
+    list_display = ['transaction', 'transaction_type', 'transaction_amount', 'created_at']
+
+
+class TransactionPercentageDisplay(admin.ModelAdmin):
+    list_display = ['name', 'balance']
+
 
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(BuyerProfile, BuyerDisplay)
@@ -64,4 +83,8 @@ admin.site.register(VendorProfile, VendorDisplay)
 admin.site.register(OrderDetail, OrderDisplay)
 admin.site.register(Product, ProductDisplay)
 admin.site.register(ProductImage)
+admin.site.register(Wallet, WalletDisplay)
+admin.site.register(Pending, PendingDisplay)
 admin.site.register(ProductReview, ProductReviewDisplay)
+admin.site.register(TransactionHistory,  TransactionHistoryDisplay)
+admin.site.register(TransactionPercentage, TransactionPercentageDisplay)

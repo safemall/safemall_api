@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.conf import settings
-from .models import BuyerProfile, VendorProfile, Product, OrderDetail, ProductImage, ProductReview
+from .models import BuyerProfile, VendorProfile, Product, OrderDetail, ProductImage, ProductReview, Wallet, TransactionHistory
 from django.contrib.auth import get_user_model
 from django.utils import timesince
 
@@ -56,10 +56,11 @@ class VendorSerializer(serializers.ModelSerializer):
     business_description = serializers.CharField(required=False)
     business_phone_number = serializers.CharField(required=False)
     business_name = serializers.CharField(required=False)
+    vendor_email = serializers.EmailField(required=False)
 
     class Meta:
         model = VendorProfile
-        fields = ['business_name', 'business_phone_number', 'business_description', 'business_address', 'account_number', 'profile_image']
+        fields = ['business_name', 'business_phone_number', 'vendor_email', 'business_description', 'business_address', 'account_number', 'profile_image']
         read_only_fields = ['account_number']
 
 
@@ -104,7 +105,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = OrderDetail
-        fields = ['order_id', 'first_name', 'last_name', 'address', 'email_address', 'phone_number', 'product_name', 'product_price', 'product_image', 'vendor_name', 'product_quantity', 'total_price', 'order_otp_token', 'delivered', 'created_at']
+        fields = ['order_id', 'first_name', 'last_name', 'address', 'email_address', 'phone_number', 'product_name', 'product_price', 'product_image', 'vendor_name', 'product_quantity', 'total_price', 'order_otp_token', 'order_status', 'created_at']
 
         vendor_name = serializers.CharField(required=False)   
         product_name = serializers.CharField(required=False)
@@ -115,10 +116,48 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'total_price': {'required': False}
         }
 
+
+class OrderDetailForVendorsSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = OrderDetail
+        fields = ['order_id', 'first_name', 'last_name', 'address', 'email_address', 'phone_number', 'product_name', 'product_price', 'product_image', 'vendor_name', 'product_quantity', 'total_price', 'order_status', 'payment_status', 'created_at']
+        
+
+
 class ProductReviewSerializer(serializers.ModelSerializer):
     
-
     class Meta:
         model = ProductReview
         fields = ['id', 'user', 'product', 'first_name', 'last_name', 'rating', 'review', 'image', 'created_at']
         read_only_fields = ['user', 'created_at', 'product', 'first_name', 'last_name', 'image']
+
+
+class WalletSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Wallet
+        fields = ['account_number', 'first_name', 'last_name', 'funds']
+
+
+
+class TransferWalletSerializer(WalletSerializer):
+
+    class Meta:
+        model = Wallet
+        exclude = ['funds', 'id', 'user']
+
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+
+    transaction = serializers.CharField(required=False)
+    transaction_type = serializers.CharField(required=False)
+    recipient = serializers.CharField(required=False)
+    sender = serializers.CharField(required=False)
+    product_name = serializers.CharField(required=False)
+    product_quantity = serializers.CharField(required=False)
+
+    class Meta:
+        model = TransactionHistory
+        fields = ['transaction', 'transaction_type', 'transaction_amount', 'recipient', 'sender', 'product_name', 'product_quantity', 'created_at']

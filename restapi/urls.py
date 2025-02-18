@@ -23,6 +23,21 @@ urlpatterns = [
     path('uploadproduct/', views.ProductUploadView.as_view(), name='upload_product'),
 
 
+    # API endpoint for paying vendors after order otp verification
+    path('vendorpayment/', views.VendorPayment.as_view(), name='vendor_payment'),
+
+
+    path('transfer/', views.TranferView.as_view(), name='transfer'),
+
+
+    #API endpoint for viewing transaction history
+    path('transactionhistory/', views.TransactionHistoryView.as_view(), name='transaction_history'),
+
+
+    # API endpoint for viewing wallet
+    path('wallet/', views.WalletView.as_view(), name='wallet'),
+
+
     # API endpoint for viewing product details and posting quantity of product to order
     path('productdetails/<int:product_id>/', views.ProductDetailsView.as_view(), name='product_details'),
 
@@ -77,7 +92,12 @@ urlpatterns = [
     #API endpoint for viewing profile details
     path('profiledetails/', views.ProfileDetails.as_view(), name='profile_details'),
 
+
+    path('subscripevendor/', views.SubscriptionView.as_view(), name='vendor_subscription'),
+
     
+    path('transactionpin/', views.SetTransactionPin.as_view(), name='transaction_pin'),
+
     #API endpoint for searching products based on product_name or vendor_name
     path('search/', views.SearchProduct.as_view(), name='search_product'),
 

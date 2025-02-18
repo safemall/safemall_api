@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-z=cqgca-z)!z_w0kevxp@ado#@2g-oja$9o@pyudvk!z21o*-!'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['Safemall.pythonanywhere.com', '127.0.0.1']
 
@@ -44,7 +44,9 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
 
-    'restapi'
+    'restapi',
+    
+    'pyfcm'
 ]
 
 MIDDLEWARE = [
@@ -141,8 +143,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 CACHES = {
     'default':{
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'TIMEOUT': 3600
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://default:Wnx9mpPDfXzCJaMxT6wwzzNao9KKjktR@redis-12759.c341.af-south-1-1.ec2.redns.redis-cloud.com:12759/0',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
     }
 }
 
