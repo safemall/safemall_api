@@ -141,15 +141,15 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
-CACHES = {
-    'default':{
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://default:Wnx9mpPDfXzCJaMxT6wwzzNao9KKjktR@redis-12759.c341.af-south-1-1.ec2.redns.redis-cloud.com:12759/0',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
-    }
-}
+#CACHES = {
+#   'default':{
+#        'BACKEND': 'django_redis.cache.RedisCache',
+#       'LOCATION': 'redis://default:Wnx9mpPDfXzCJaMxT6wwzzNao9KKjktR@redis-12759.c341.af-south-1-1.ec2.redns.redis-cloud.com:12759/0',
+#       'OPTIONS': {
+#           'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#       }
+#   }
+#}
 
 
 load_dotenv()

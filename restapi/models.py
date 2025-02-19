@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, Group, Permission
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, Group, Permission 
 from django.utils.translation import gettext_lazy as _
 from .managers import CustomUserManager
 from django.utils import timezone
@@ -16,7 +16,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=200, )
     last_name = models.CharField(max_length=200, )
     firebase_token = models.TextField(max_length=1000, )
-    transaction_pin = models.CharField(max_length=4, default='')
+    transaction_pin = models.CharField(max_length=255, default='')
     fcm_token = models.TextField(max_length=200, default='')
     profile_image = models.ImageField(upload_to='image', null=True, default='', blank=True)
     is_staff = models.BooleanField(default=False)
@@ -65,7 +65,7 @@ class VendorProfile(models.Model):
     business_phone_number = models.CharField(max_length=15, default='', null=True, blank=True)
     vendor_id = models.UUIDField(default=uuid.uuid4())
     vendor_email = models.EmailField(max_length=200, default='')
-    business_name = models.CharField(max_length=500)
+    business_name = models.CharField(max_length=500, default='')
     business_description = models.TextField(max_length=1000, default='')
     profile_image = models.ImageField(upload_to='image')
     business_address = models.CharField(max_length=500)
@@ -88,9 +88,9 @@ class VendorProfile(models.Model):
             return False
         
 
-    def subscripe_for_one_minute(self):
+    def subscripe_for_two_hours(self):
         self.subscription_status = True
-        self.subscription_expires_at = timezone.now() + timezone.timedelta(minutes=1)
+        self.subscription_expires_at = timezone.now() + timezone.timedelta(hours=2)
         self.save()
 
     

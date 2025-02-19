@@ -61,7 +61,7 @@ class ProductReviewDisplay(admin.ModelAdmin):
 
 class WalletDisplay(admin.ModelAdmin):
     list_display = ['first_name', 'last_name', 'account_number', 'funds']
-    #readonly_fields = ['user','first_name', 'last_name', 'account_number']
+    readonly_fields = ['user','first_name', 'last_name', 'account_number']
 
 
 class PendingDisplay(admin.ModelAdmin):

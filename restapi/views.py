@@ -14,7 +14,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.db.models.fields.files import ImageFieldFile
 from .transaction import Transaction, TransferFunds
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
 import secrets
@@ -197,12 +197,15 @@ class SetTransactionPin(APIView):
     def post(self, request):
         pin = request.data['pin']
         user = request.user
-        if pin:
-            user.transaction_pin = make_password(pin)
-            user.save()
-            return Response({'message': 'Pin set successfully'})
+        if 'pin' in request.data:
+            if pin:
+                user.transaction_pin = make_password(pin)
+                user.save()
+                return Response({'message': 'Pin set successfully'})
+            else:
+                return Response({'message': 'Please input a valid pin'})
         else:
-            return Response({'message': 'Please input a valid pin'})
+            return Response({'message': 'Pin is required'})
 
 
 class SubscriptionView(APIView):
@@ -211,8 +214,8 @@ class SubscriptionView(APIView):
 
     def get(self, request):
         vendor = get_object_or_404(VendorProfile, user=request.user)
-        vendor.subscripe_for_one_minute()
-        return Response({'message': 'You are subscriped for 1 minute'})
+        vendor.subscripe_for_two_hours()
+        return Response({'message': 'You are subscriped for 2 hours'})
 
 
 
@@ -224,7 +227,7 @@ class ProductUploadView(APIView):
     def post(self, request):
         user = request.user
         vendor = get_object_or_404(VendorProfile, user=user)
-        if vendor.subscription_expires_at < timezone.now():
+        if vendor.subscription_expires_at is not None and vendor.subscription_expires_at < timezone.now():
             vendor.unsubscripe()
         if vendor.is_subscriped():
             name = vendor.business_name
@@ -269,7 +272,7 @@ class ProductDetailsView(APIView):
         except Product.DoesNotExist:
             raise Http404
 
-    @method_decorator(cache_page(60 * 15, key_prefix='product_details'))
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_details'))
     def get(self, request, product_id):
         product = self.get_object(product_id)
         serializer = ProductSerializer(product)
@@ -317,7 +320,7 @@ class ProductDetailsView(APIView):
         product = self.get_object(product_id)
         serializer = ProductSerializer(product, data=request.data)
         vendor = get_object_or_404(VendorProfile, user=request.user)
-        if vendor.subscription_expires_at < timezone.now():
+        if vendor.subscription_expires_at is not None and vendor.subscription_expires_at < timezone.now():
             vendor.unsubscripe()
         if vendor.is_subscriped():
             if vendor.vendor_id == product.vendor_identity:
@@ -354,7 +357,7 @@ class ProductDetailsView(APIView):
     def delete(self, request, product_id):
         product = self.get_object(product_id)
         vendor = get_object_or_404(VendorProfile, user=request.user)
-        if vendor.subscription_expires_at < timezone.now():
+        if vendor.subscription_expires_at is not None and vendor.subscription_expires_at < timezone.now():
             vendor.unsubscripe()
         if vendor.is_subscriped():
             if vendor.vendor_id == product.vendor_identity:
@@ -415,29 +418,32 @@ class OrderProductView(APIView):
     
         if serializer.is_valid(): 
             transfer = Transaction(vendor_wallet, customer_wallet, percentage_sum)
-            if request.data['pin'] == request.user.transaction_pin:
-                if transfer.pay():
-                    
-                    order = OrderDetail.objects.create(user = request.user, order_id = uuid.uuid4(), order_otp_token = secrets.token_hex(4), first_name=request.data['first_name'], last_name=request.data['last_name'], address=request.data['address'], phone_number=request.data['phone_number'], email_address=request.data['email_address'], 
-                                                        product_name=name, product_image = order_image.image, product_price=price, vendor_name=vendor_name, vendor_id =vendor_id, product_quantity=quantity, total_price = total_sum)      
-                    order.save()
-                    pending_payment = Pending.objects.create(product_id=product_id, quantity=quantity, order_id=order.order_id, account_number=customer_wallet.account_number, otp_token=order.order_otp_token, amount=total_sum)
-                    pending_payment.save()
-                    transaction_percentage = get_object_or_404(TransactionPercentage, name='Transaction percentage')
-                    transaction_percentage.balance += Decimal(percentage)
-                    transaction_percentage.save()
-                    transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Debit', transaction_type='Order', transaction_amount=total_sum, recipient=vendor_name, sender=str(customer_wallet.first_name)+' '+str(customer_wallet.last_name), product_name=name, product_quantity=quantity)
-                    transaction_history.save()
-                    order_serializer = OrderDetailSerializer(order)                
-                    product.stock -= int(quantity)
-                    product.quantity_sold += int(quantity)
-                    product.save()
-                    
-                    return Response(order_serializer.data, status=status.HTTP_201_CREATED)
-                else:      
-                    return Response({'message': 'insufficient funds'})
+            if 'pin' in request.data:
+                if check_password(request.data['pin'], request.user.transaction_pin):
+                    if transfer.pay():
+                        
+                        order = OrderDetail.objects.create(user = request.user, order_id = uuid.uuid4(), order_otp_token = secrets.token_hex(4), first_name=request.data['first_name'], last_name=request.data['last_name'], address=request.data['address'], phone_number=request.data['phone_number'], email_address=request.data['email_address'], 
+                                                            product_name=name, product_image = order_image.image, product_price=price, vendor_name=vendor_name, vendor_id =vendor_id, product_quantity=quantity, total_price = total_sum)      
+                        order.save()
+                        pending_payment = Pending.objects.create(product_id=product_id, quantity=quantity, order_id=order.order_id, account_number=customer_wallet.account_number, otp_token=order.order_otp_token, amount=total_sum)
+                        pending_payment.save()
+                        transaction_percentage = get_object_or_404(TransactionPercentage, name='Transaction percentage')
+                        transaction_percentage.balance += Decimal(percentage)
+                        transaction_percentage.save()
+                        transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Debit', transaction_type='Order', transaction_amount=total_sum, recipient=vendor_name, sender=str(customer_wallet.first_name)+' '+str(customer_wallet.last_name), product_name=name, product_quantity=quantity)
+                        transaction_history.save()
+                        order_serializer = OrderDetailSerializer(order)                
+                        product.stock -= int(quantity)
+                        product.quantity_sold += int(quantity)
+                        product.save()
+                        
+                        return Response(order_serializer.data, status=status.HTTP_201_CREATED)
+                    else:      
+                        return Response({'message': 'insufficient funds'})
+                else:
+                    return Response({'message': 'Invalid pin'})
             else:
-                return Response({'message': 'Invalid pin'})      
+                return Response({'message': 'Transaction pin required'})
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -453,7 +459,7 @@ class VendorPayment(APIView):
         order_id = request.data['order_id']
         otp_token = request.data['otp_token']
         current_vendor = get_object_or_404(VendorProfile, user=request.user)
-        if current_vendor.subscription_expires_at < timezone.now():
+        if current_vendor.subscription_expires_at is not None and current_vendor.subscription_expires_at < timezone.now():
             current_vendor.unsubscripe()
         if current_vendor.is_subscriped():
             pending_funds = Pending.objects.filter(order_id=order_id).first()
@@ -476,8 +482,6 @@ class VendorPayment(APIView):
                     else:
                         return Response({'message': 'invalid order id or otp token'})   
                 else:
-                    print(current_vendor.vendor_id)
-                    print(order.vendor_id) 
                     return Response({'message': 'invalid vendor identity'})       
             else:
                 return Response({'message': 'invalid order id or otp token'})
@@ -605,7 +609,7 @@ class TranferView(APIView):
 
 class ClothesPageView(APIView):
 
-    @method_decorator(cache_page(60 * 15, key_prefix='product_category'))
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         clothpage = Product.objects.filter(product_category='clothes').order_by('-uploaded_at')
         clothserializer = ProductSerializer(clothpage, many=True)
@@ -615,7 +619,7 @@ class ClothesPageView(APIView):
 
 class FoodPageView(APIView):
 
-    @method_decorator(cache_page(60 * 15, key_prefix='product_category'))
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         foodpage = Product.objects.filter(product_category='food').order_by('-uploaded_at')
         foodserializer = ProductSerializer(foodpage, many=True)
@@ -624,7 +628,7 @@ class FoodPageView(APIView):
 
 class FootwearsPageView(APIView):
 
-    @method_decorator(cache_page(60 * 15, key_prefix='product_category'))
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         footwearpage = Product.objects.filter(product_category='footwears').order_by('-uploaded_at')
         footwearserializer = ProductSerializer(footwearpage, many=True)
@@ -633,7 +637,7 @@ class FootwearsPageView(APIView):
 
 class AccessoriesPageView(APIView):
 
-    @method_decorator(cache_page(60 * 15, key_prefix='product_category'))
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         accessoriespage = Product.objects.filter(product_category='accessories').order_by('-uploaded_at')
         accessoriesserializer = ProductSerializer(accessoriespage, many=True)
@@ -642,7 +646,7 @@ class AccessoriesPageView(APIView):
 
 class BeautyPageView(APIView):
 
-    @method_decorator(cache_page(60 * 15, key_prefix='product_category'))
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         beautypage = Product.objects.filter(product_category='beauty').order_by('-uploaded_at')
         beautyserializer = ProductSerializer(beautypage, many=True)
@@ -651,7 +655,7 @@ class BeautyPageView(APIView):
 
 class HouseholdPageView(APIView):
 
-    @method_decorator(cache_page(60 * 15, key_prefix='product_category'))
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         householdpage = Product.objects.filter(product_category='household').order_by('-uploaded_at')
         householdserializer = ProductSerializer(householdpage, many=True)
@@ -660,7 +664,7 @@ class HouseholdPageView(APIView):
 
 class NewArrivalsView(APIView):
 
-    @method_decorator(cache_page(60 * 15, key_prefix='new_arrivals'))
+    #@method_decorator(cache_page(60 * 15, key_prefix='new_arrivals'))
     def get(self, request):
         total = Product.objects.count() - 3
         new_arrivals = Product.objects.all().order_by('-uploaded_at')[:20]
@@ -670,8 +674,8 @@ class NewArrivalsView(APIView):
 
 class ExploreView(APIView):
 
-    @method_decorator(cache_page(60 * 30, key_prefix='explore'))
-    @method_decorator(vary_on_headers)
+    #@method_decorator(cache_page(60 * 30, key_prefix='explore'))
+    #@method_decorator(vary_on_headers)
     def get(self, request):
         max_id = VendorProfile.objects.values_list('id', flat=True)
         random_ids = random.sample(list(max_id), min(20, len(max_id)))
@@ -682,8 +686,8 @@ class ExploreView(APIView):
 
 class FeaturedProductView(APIView):
 
-    @method_decorator(cache_page(60 * 30, key_prefix='featured_products'))
-    @method_decorator(vary_on_headers)
+    #@method_decorator(cache_page(60 * 30, key_prefix='featured_products'))
+    #@method_decorator(vary_on_headers)
     def get(self, request):
         max_id = Product.objects.values_list('id', flat=True)
         random_ids = random.sample(list(max_id), min(25, len(max_id)))
@@ -694,7 +698,7 @@ class FeaturedProductView(APIView):
 
 class VendorPageView(APIView):
 
-    @method_decorator(cache_page(60 * 30, key_prefix='vendor_page'))
+    #@method_decorator(cache_page(60 * 30, key_prefix='vendor_page'))
     def get(self, request, vendor_id):
         vendor = get_object_or_404(VendorProfile, vendor_id=vendor_id)
         product = Product.objects.filter(vendor_identity=vendor_id).order_by('-uploaded_at')
@@ -776,7 +780,7 @@ class ProductReviewView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-    @method_decorator(cache_page(60*30, key_prefix='product_reviews'))
+    #@method_decorator(cache_page(60*30, key_prefix='product_reviews'))
     def get(self, request, product_id):
         product = get_object_or_404(Product, id=product_id)
         review = ProductReview.objects.filter(product=product).order_by('-created_at')
@@ -824,7 +828,7 @@ class VendorOrderView(APIView):
         user = request.user
         vendor = get_object_or_404(VendorProfile, user=user)
         vendor_id = vendor.vendor_id
-        if vendor.subscription_expires_at < timezone.now():
+        if vendor.subscription_expires_at is not None and vendor.subscription_expires_at < timezone.now():
             vendor.unsubscripe()
         if vendor.is_subscriped():
             vendor_order = OrderDetail.objects.filter(vendor_id=vendor_id).order_by('-created_at')
@@ -860,7 +864,7 @@ class InventoryView(APIView):
         user = request.user
         vendor = get_object_or_404(VendorProfile, user=user)
         vendor_id = vendor.vendor_id
-        if vendor.subscription_expires_at < timezone.now():
+        if vendor.subscription_expires_at is not None and vendor.subscription_expires_at < timezone.now():
             vendor.unsubscripe()
         if vendor.is_subscriped():
             product = Product.objects.filter(vendor_identity=vendor_id).order_by('-uploaded_at')
