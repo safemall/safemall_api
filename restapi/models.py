@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from .managers import CustomUserManager
 from django.utils import timezone
 from django.conf import settings
+from .schools import SCHOOLS
 from django.utils import timezone
 import uuid
 import secrets
@@ -15,6 +16,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(max_length=20, default='')
     first_name = models.CharField(max_length=200, )
     last_name = models.CharField(max_length=200, )
+    school = models.CharField(max_length=1000, choices=SCHOOLS, default='')
     firebase_token = models.TextField(max_length=1000, )
     transaction_pin = models.CharField(max_length=255, default='')
     fcm_token = models.TextField(max_length=200, default='')
