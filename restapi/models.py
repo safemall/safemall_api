@@ -18,6 +18,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=200, )
     school = models.CharField(max_length=1000, choices=SCHOOLS, default='')
     firebase_token = models.TextField(max_length=1000, )
+    email_verified = models.BooleanField(default=False)
     transaction_pin = models.CharField(max_length=255, default='')
     fcm_token = models.TextField(max_length=200, default='')
     profile_image = models.ImageField(upload_to='image', null=True, default='', blank=True)
@@ -39,8 +40,27 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return self.email
     
 
+
+class OtpTokenGenerator(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    otp_token = models.CharField(max_length=6)
+    otp_created_at = models.DateTimeField(auto_now_add=True)
+    otp_expires_at = models.DateTimeField(null=True, blank=True)
+
+
+
+class TransactionOtpTokenGenerator(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    otp_token = models.CharField(max_length=6)
+    otp_created_at = models.DateTimeField(auto_now_add=True)
+    otp_expires_at = models.DateTimeField(null=True, blank=True)
   
-    
+
+class EmailOtpTokenGenerator(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    otp_token = models.CharField(max_length=6)
+    otp_created_at = models.DateTimeField(auto_now_add=True)
+    otp_expires_at = models.DateTimeField(null=True, blank=True)
 
 class BuyerProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -127,6 +147,7 @@ class Product(models.Model):
     product_price = models.FloatField()
     discounted_amount = models.FloatField(default=0)
     discounted_price = models.FloatField(default=0)
+    school = models.CharField(default='', max_length=1000, blank=True)
     percentage_discount = models.IntegerField(default=0)
     product_category = models.CharField(choices=CATEGORIES, default='', max_length=50)
     stock = models.IntegerField(default=0)
@@ -266,6 +287,13 @@ class TransactionHistory(models.Model):
 class TransactionPercentage(models.Model):
     name = models.CharField(max_length=50, default='Transaction percentage')
     balance = models.DecimalField(max_digits=9, decimal_places=2, default=0.00)
+    reset = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
+    
+
+class SubscriptionFunds(models.Model):
+    name = models.CharField(max_length=50, default='Subscription funds')
+    balance = models.DecimalField(max_digits=9, decimal_places=2, default=0.00)
+    reset = models.BooleanField(default=False)

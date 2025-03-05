@@ -6,7 +6,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.http import Http404
 from .serializers import UserSerializer, BuyerSerializer, VendorSerializer, ProductSerializer,OrderDetailForVendorsSerializer, OrderDetailSerializer, ProductImageSerializer, ProductReviewSerializer, WalletSerializer, TransactionSerializer, TransferWalletSerializer
-from .models import BuyerProfile, VendorProfile, Product,TransactionPercentage , OrderDetail, ProductImage, ProductReview, Pending, Wallet, TransactionHistory
+from .models import (BuyerProfile, TransactionOtpTokenGenerator, VendorProfile, Product,TransactionPercentage , EmailOtpTokenGenerator,
+                     OrderDetail, ProductImage, ProductReview, OtpTokenGenerator, Pending, Wallet, TransactionHistory)
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
@@ -18,6 +19,9 @@ from django.contrib.auth.hashers import make_password, check_password
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
 import secrets
+from django.core.mail import send_mail
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from django.views.decorators.vary import vary_on_headers
 import random 
 from decimal import Decimal
@@ -38,7 +42,7 @@ class BuyerSignupApi(APIView):
         User = get_user_model()
         
         if User.objects.filter(email=request.data['email']).exists():
-            return Response({'message': 'Email already exists'})
+            return Response({'message': 'email already exists'})
         else:
             if serializer.is_valid():        
                 serializer.save()
@@ -68,7 +72,7 @@ class VendorSignupApi(APIView):
         serializer = UserSerializer(data = request.data)
         User = get_user_model()
         if User.objects.filter(email=request.data['email']).exists():
-                return Response({'message': 'Email already exists'})
+                return Response({'message': 'email already exists'})
         else:
             if serializer.is_valid():
                 serializer.save()
@@ -201,11 +205,11 @@ class SetTransactionPin(APIView):
             if pin:
                 user.transaction_pin = make_password(pin)
                 user.save()
-                return Response({'message': 'Pin set successfully'})
+                return Response({'message': 'pin set successfully'})
             else:
-                return Response({'message': 'Please input a valid pin'})
+                return Response({'message': 'please input a valid pin'})
         else:
-            return Response({'message': 'Pin is required'})
+            return Response({'message': 'pin is required'})
 
 
 class SubscriptionView(APIView):
@@ -215,7 +219,7 @@ class SubscriptionView(APIView):
     def get(self, request):
         vendor = get_object_or_404(VendorProfile, user=request.user)
         vendor.subscripe_for_two_hours()
-        return Response({'message': 'You are subscriped for 2 hours'})
+        return Response({'message': 'you are subscribed for 2 hours'})
 
 
 
@@ -230,34 +234,37 @@ class ProductUploadView(APIView):
         if vendor.subscription_expires_at is not None and vendor.subscription_expires_at < timezone.now():
             vendor.unsubscripe()
         if vendor.is_subscriped():
-            name = vendor.business_name
-            identity = vendor.vendor_id
-            vendor_image = vendor.profile_image
-            serializer = ProductSerializer(data=request.data)
-            if vendor.business_name == '':
-                return Response({"message": "You haven't set up your store"})
-            else:
-                if int(request.data['discounted_amount']) > int(request.data['product_price']):
-                    return Response({'message': 'product discount cannot be greater than product price'})
+            if user.email_verified:
+                name = vendor.business_name
+                identity = vendor.vendor_id
+                vendor_image = vendor.profile_image
+                serializer = ProductSerializer(data=request.data)
+                if vendor.business_name == '':
+                    return Response({"message": "you haven't set up your store"})
                 else:
-                    if serializer.is_valid():
-                        product = Product.objects.create(vendor=vendor, product_name=request.data['product_name'], vendor_image=vendor_image, discounted_amount=request.data['discounted_amount'], stock=request.data['stock'], product_description=request.data['product_description'], product_category=request.data['product_category'], vendor_name=name,
-                                                        vendor_identity=identity, product_price=request.data['product_price'])
-                        price = int(product.discounted_amount) / int(product.product_price)
-                        discounted_price = int(product.product_price) - int(product.discounted_amount)
-                        percentage = price * 100
-                        product.percentage_discount = percentage
-                        product.discounted_price = discounted_price
-                        product.save()
-                        images = request.FILES.getlist('uploaded_images')
-                        for image in images:
-                            new_product_image = ProductImage.objects.create(product=product, image=image)
-                            
-                        product_serializer = ProductSerializer(product)
-                        return Response( product_serializer.data, status=status.HTTP_201_CREATED)
-                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    if int(request.data['discounted_amount']) > int(request.data['product_price']):
+                        return Response({'message': 'product discount cannot be greater than product price'})
+                    else:
+                        if serializer.is_valid():
+                            product = Product.objects.create(vendor=vendor, product_name=request.data['product_name'], vendor_image=vendor_image, discounted_amount=request.data['discounted_amount'], stock=request.data['stock'], product_description=request.data['product_description'], product_category=request.data['product_category'], vendor_name=name,
+                                                            vendor_identity=identity, product_price=request.data['product_price'],school=user.school)
+                            price = int(product.discounted_amount) / int(product.product_price)
+                            discounted_price = int(product.product_price) - int(product.discounted_amount)
+                            percentage = price * 100
+                            product.percentage_discount = percentage
+                            product.discounted_price = discounted_price
+                            product.save()
+                            images = request.FILES.getlist('uploaded_images')
+                            for image in images:
+                                new_product_image = ProductImage.objects.create(product=product, image=image)
+                                
+                            product_serializer = ProductSerializer(product)
+                            return Response( product_serializer.data, status=status.HTTP_201_CREATED)
+                        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'message': 'email not verified'})                
         else:
-            return Response({'message': 'Subscription is out of date'})
+            return Response({'message': 'subscription is out of date'})
         
 
 
@@ -285,7 +292,7 @@ class ProductDetailsView(APIView):
         vendor = VendorProfile.objects.filter(user=request.user).first()
         if vendor:
             if product.vendor_identity == vendor.vendor_id:
-                return Response({'message': 'You cannot order your own product'})
+                return Response({'message': 'you cannot order your own product'})
             else:
                 quantity = int(request.data['quantity'])
                 serializer = ProductSerializer(product)
@@ -349,9 +356,9 @@ class ProductDetailsView(APIView):
                         return Response(serializer.data)
                     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({'message': 'Invalid vendor'})
+                return Response({'message': 'invalid vendor'})
         else:
-            return Response({'message': 'Subscription is out of date'})
+            return Response({'message': 'subscription is out of date'})
 
     
     def delete(self, request, product_id):
@@ -364,9 +371,9 @@ class ProductDetailsView(APIView):
                 product.delete()
                 return Response(status=status.HTTP_204_NO_CONTENT)
             else:
-                return Response({'message': 'Invalid vendor'})
+                return Response({'message': 'invalid vendor'})
         else:
-            return Response({'message': 'Subscription is out of date'})
+            return Response({'message': 'subscription is out of date'})
         
 
 class ProductImageView(APIView):
@@ -417,33 +424,37 @@ class OrderProductView(APIView):
         customer_wallet = get_object_or_404(Wallet,user=request.user)
     
         if serializer.is_valid(): 
-            transfer = Transaction(vendor_wallet, customer_wallet, percentage_sum)
+            
             if 'pin' in request.data:
                 if check_password(request.data['pin'], request.user.transaction_pin):
-                    if transfer.pay():
-                        
-                        order = OrderDetail.objects.create(user = request.user, order_id = uuid.uuid4(), order_otp_token = secrets.token_hex(4), first_name=request.data['first_name'], last_name=request.data['last_name'], address=request.data['address'], phone_number=request.data['phone_number'], email_address=request.data['email_address'], 
-                                                            product_name=name, product_image = order_image.image, product_price=price, vendor_name=vendor_name, vendor_id =vendor_id, product_quantity=quantity, total_price = total_sum)      
-                        order.save()
-                        pending_payment = Pending.objects.create(product_id=product_id, quantity=quantity, order_id=order.order_id, account_number=customer_wallet.account_number, otp_token=order.order_otp_token, amount=total_sum)
-                        pending_payment.save()
-                        transaction_percentage = get_object_or_404(TransactionPercentage, name='Transaction percentage')
-                        transaction_percentage.balance += Decimal(percentage)
-                        transaction_percentage.save()
-                        transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Debit', transaction_type='Order', transaction_amount=total_sum, recipient=vendor_name, sender=str(customer_wallet.first_name)+' '+str(customer_wallet.last_name), product_name=name, product_quantity=quantity)
-                        transaction_history.save()
-                        order_serializer = OrderDetailSerializer(order)                
-                        product.stock -= int(quantity)
-                        product.quantity_sold += int(quantity)
-                        product.save()
-                        
-                        return Response(order_serializer.data, status=status.HTTP_201_CREATED)
-                    else:      
-                        return Response({'message': 'insufficient funds'})
+                    if request.user.email_verified:
+                        transfer = Transaction(vendor_wallet, customer_wallet, percentage_sum)
+                        if transfer.pay():
+                            
+                            order = OrderDetail.objects.create(user = request.user, order_id = uuid.uuid4(), order_otp_token = secrets.token_hex(4), first_name=request.data['first_name'], last_name=request.data['last_name'], address=request.data['address'], phone_number=request.data['phone_number'], email_address=request.data['email_address'], 
+                                                                product_name=name, product_image = order_image.image, product_price=price, vendor_name=vendor_name, vendor_id =vendor_id, product_quantity=quantity, total_price = total_sum)      
+                            order.save()
+                            pending_payment = Pending.objects.create(product_id=product_id, quantity=quantity, order_id=order.order_id, account_number=customer_wallet.account_number, otp_token=order.order_otp_token, amount=total_sum)
+                            pending_payment.save()
+                            transaction_percentage = get_object_or_404(TransactionPercentage, name='Transaction percentage')
+                            transaction_percentage.balance += Decimal(percentage)
+                            transaction_percentage.save()
+                            transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Debit', transaction_type='Order', transaction_amount=total_sum, recipient=vendor_name, sender=str(customer_wallet.first_name)+' '+str(customer_wallet.last_name), product_name=name, product_quantity=quantity)
+                            transaction_history.save()
+                            order_serializer = OrderDetailSerializer(order)                
+                            product.stock -= int(quantity)
+                            product.quantity_sold += int(quantity)
+                            product.save()
+                            
+                            return Response(order_serializer.data, status=status.HTTP_201_CREATED)
+                        else:      
+                            return Response({'message': 'insufficient funds'})
+                    else:
+                        return Response({'message': 'email not verified'})
                 else:
-                    return Response({'message': 'Invalid pin'})
+                    return Response({'message': 'invalid pin'})
             else:
-                return Response({'message': 'Transaction pin required'})
+                return Response({'message': 'transaction pin required'})
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -478,7 +489,7 @@ class VendorPayment(APIView):
                         order.order_status = 'Delivered'
                         order.save()
                         pending_funds.delete()
-                        return Response({'message': 'Your account has been credited successfully'})
+                        return Response({'message': 'your account has been credited successfully'})
                     else:
                         return Response({'message': 'invalid order id or otp token'})   
                 else:
@@ -486,7 +497,7 @@ class VendorPayment(APIView):
             else:
                 return Response({'message': 'invalid order id or otp token'})
         else:
-            return Response({'message': 'Subscription is out of date'})
+            return Response({'message': 'subscription is out of date'})
 
 
 
@@ -517,7 +528,7 @@ class WalletView(APIView):
                     pending.delete()
                     wallet_serializer = WalletSerializer(wallet)
                     data = {
-                        'message' :'You have been refunded successfully',
+                        'message' :'you have been refunded successfully',
                         'wallet' : wallet_serializer.data
                     }
                     return Response(data)
@@ -538,7 +549,7 @@ class TransactionHistoryView(APIView):
             serializer = TransactionSerializer(transaction_history, many=True)
             return Response(serializer.data)
         else:
-            return Response({'message': 'No Transactions Yet'})
+            return Response({'message': []})
 
 
 
@@ -559,9 +570,9 @@ class TranferView(APIView):
                 cache.set(cache_key,account.account_number,3600)
                 return Response(serializer.data)
             else:
-                return Response({'message': 'Input a valid account number'})
+                return Response({'message': 'input a valid account number'})
         else:
-            return Response({'message': 'Input an account number'})
+            return Response({'message': 'input an account number'})
 
 
     def post(self, request):
@@ -572,102 +583,126 @@ class TranferView(APIView):
         account_number = cache.get(cache_key)
         if account_number:
             if request.user.transaction_pin == '':
-                return Response({'message':'You have not set your transaction pin'})
+                return Response({'message':'you have not set your transaction pin'})
             if pin == request.user.transaction_pin:
                 recipient = get_object_or_404(Wallet, account_number=account_number)
                 if recipient.user != request.user:
-                    transfer = TransferFunds(sender, recipient, amount)
-                    if transfer.payment():
-                        percentage = Decimal(amount) * Decimal(0.03)
-                        transaction_percentage = get_object_or_404(TransactionPercentage, name='Transaction percentage')
-                        transaction_percentage.balance += percentage
-                        transaction_percentage.save()
-                        sender_transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Debit', transaction_type='Transfer', transaction_amount=amount,
-                                                                                sender=str(sender.first_name)+' '+str(sender.last_name), recipient=str(recipient.first_name)+' '+str(recipient.last_name))
-                        sender_transaction_history.save()
+                    if request.user.email_verified:
+                        transfer = TransferFunds(sender, recipient, amount)
+                        if transfer.payment():
+                            percentage = Decimal(amount) * Decimal(0.03)
+                            transaction_percentage = get_object_or_404(TransactionPercentage, name='Transaction percentage')
+                            transaction_percentage.balance += percentage
+                            transaction_percentage.save()
+                            sender_transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Debit', transaction_type='Transfer', transaction_amount=amount,
+                                                                                    sender=str(sender.first_name)+' '+str(sender.last_name), recipient=str(recipient.first_name)+' '+str(recipient.last_name))
+                            sender_transaction_history.save()
 
-                        recipient_transaction_history = TransactionHistory.objects.create(user=recipient.user, transaction='Credit', transaction_type='Transfer', transaction_amount=amount,
-                                                                                sender=str(sender.first_name)+' '+str(sender.last_name), recipient=str(recipient.first_name)+' '+str(recipient.last_name))
-                        recipient_transaction_history.save()
-                        serializer = TransactionSerializer(sender_transaction_history)
-                        data = {
-                            'message': 'Transaction done successfully',
-                            'receipt': serializer.data
-                        }
-                        return Response(data)
+                            recipient_transaction_history = TransactionHistory.objects.create(user=recipient.user, transaction='Credit', transaction_type='Transfer', transaction_amount=amount,
+                                                                                    sender=str(sender.first_name)+' '+str(sender.last_name), recipient=str(recipient.first_name)+' '+str(recipient.last_name))
+                            recipient_transaction_history.save()
+                            serializer = TransactionSerializer(sender_transaction_history)
+                            data = {
+                                'message': 'transaction done successfully',
+                                'receipt': serializer.data
+                            }
+                            return Response(data)
+                        else:
+                            return Response({'message': 'insufficient fund'})
                     else:
-                        return Response({'message': 'Insufficient fund'})
+                        return Response({'message': 'email not verified'})
                 else:
-                    return Response({'message': 'Invalid transaction'})
+                    return Response({'message': 'invalid transaction'})
             else:
-                return Response({'message': 'Invalid pin'})
+                return Response({'message': 'invalid pin'})
         else:
-            return Response({'message': 'Cache timeout'})
+            return Response({'message': 'cache timeout'})
 
 
 
 
 class ClothesPageView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
-        clothpage = Product.objects.filter(product_category='clothes').order_by('-uploaded_at')
+        user = request.user
+        clothpage = Product.objects.filter(product_category='clothes').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
         clothserializer = ProductSerializer(clothpage, many=True)
         return Response(clothserializer.data)
     
 
 
 class FoodPageView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
-        foodpage = Product.objects.filter(product_category='food').order_by('-uploaded_at')
+        user = request.user
+        foodpage = Product.objects.filter(product_category='food').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
         foodserializer = ProductSerializer(foodpage, many=True)
         return Response(foodserializer.data)
     
 
 class FootwearsPageView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
-        footwearpage = Product.objects.filter(product_category='footwears').order_by('-uploaded_at')
+        user = request.user
+        footwearpage = Product.objects.filter(product_category='footwears').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
         footwearserializer = ProductSerializer(footwearpage, many=True)
         return Response(footwearserializer.data)
     
 
 class AccessoriesPageView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
-        accessoriespage = Product.objects.filter(product_category='accessories').order_by('-uploaded_at')
+        user = request.user
+        accessoriespage = Product.objects.filter(product_category='accessories').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
         accessoriesserializer = ProductSerializer(accessoriespage, many=True)
         return Response(accessoriesserializer.data)
     
 
 class BeautyPageView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
-        beautypage = Product.objects.filter(product_category='beauty').order_by('-uploaded_at')
+        user = request.user
+        beautypage = Product.objects.filter(product_category='beauty').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
         beautyserializer = ProductSerializer(beautypage, many=True)
         return Response(beautyserializer.data)
     
 
 class HouseholdPageView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
-        householdpage = Product.objects.filter(product_category='household').order_by('-uploaded_at')
+        user = request.user
+        householdpage = Product.objects.filter(product_category='household').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
         householdserializer = ProductSerializer(householdpage, many=True)
         return Response(householdserializer.data)
     
 
 class NewArrivalsView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     #@method_decorator(cache_page(60 * 15, key_prefix='new_arrivals'))
     def get(self, request):
+        user = request.user
         total = Product.objects.count() - 3
-        new_arrivals = Product.objects.all().order_by('-uploaded_at')[:20]
+        new_arrivals = Product.objects.filter(school=user.school).order_by('-uploaded_at')[:20]
         serializer = ProductSerializer(new_arrivals, many=True)
         return Response(serializer.data)
     
@@ -741,17 +776,26 @@ class ProfileDetails(APIView):
                 user.profile_image = image
                 user.save()
             serializer.save()
-            buyer = get_object_or_404(BuyerProfile, user=request.user)
-            buyer.first_name = user.first_name
-            buyer.last_name = user.last_name
-            buyer.phone_number = user.phone_number
-            buyer.save()
+            buyer = BuyerProfile.objects.filter(user=request.user).first()
+            if buyer:
+                buyer.first_name = user.first_name
+                buyer.last_name = user.last_name
+                buyer.phone_number = user.phone_number
+                buyer.save()
+            vendor = VendorProfile.objects.filter(user=user).first()
+            if vendor:
+                products = Product.objects.filter(vendor=vendor)
+                if products:
+                    for product in products:
+                        product.school = user.school
+                        product.save()
             reviews = ProductReview.objects.filter(user=request.user)
-            for review in reviews:
-                review.first_name = user.first_name
-                review.last_name = user.last_name
-                review.image = user.profile_image
-                review.save()
+            if reviews:
+                for review in reviews:
+                    review.first_name = user.first_name
+                    review.last_name = user.last_name
+                    review.image = user.profile_image
+                    review.save()
             wallet = get_object_or_404(Wallet, user=request.user)
             wallet.first_name = user.first_name
             wallet.last_name = user.last_name
@@ -772,7 +816,7 @@ class SearchProduct(APIView):
             serializer = ProductSerializer(product, many=True)
             return Response(serializer.data)
         else:
-            return Response({'message': 'Please provide a search query'})
+            return Response({'message': []})
 
 
 
@@ -836,9 +880,9 @@ class VendorOrderView(APIView):
                 serializer = OrderDetailForVendorsSerializer(vendor_order, many=True)
                 return Response(serializer.data)
             else:
-                return Response({'message': 'No order yet'})
+                return Response({'message': 'no order yet'})
         else:
-            return Response({'message': 'Subscription is out of date'})
+            return Response({'message': 'subscription is out of date'})
        
         
 
@@ -853,7 +897,7 @@ class BuyerOrderView(APIView):
             serializer = OrderDetailSerializer(order, many=True)
             return Response(serializer.data)
         else:
-            return Response({'message': 'You have made no order yet'})
+            return Response({'message': []})
         
 
 class InventoryView(APIView):
@@ -872,6 +916,399 @@ class InventoryView(APIView):
                 serializer = ProductSerializer(product, many=True)
                 return Response(serializer.data)
             else:
-                return Response({'message': []})
+                return Response({'message': 'no product(s) yet'})
         else:
-            return Response({'message': 'Subscription is out of date'})
+            return Response({'message': 'subscription is out of date'})
+
+
+
+class PasswordResetView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        try:
+            otp = secrets.token_hex(3)
+            otp_token = OtpTokenGenerator.objects.create(user=user, otp_token=make_password(otp), otp_expires_at=timezone.now() + timezone.timedelta(minutes=30))
+            otp_token.save()
+
+
+            subject = 'Password Reset'
+            recipient = [user.email]
+            sender = settings.EMAIL_HOST_USER
+            html_content = f""" 
+            <html>
+            <head>
+
+            </head>
+            <body>
+            <h1> Password Reset Email </h1>
+            <p> Dear {user.first_name}, </p>
+            <p> we received a request to reset your password for your safemall account. </p>
+            <p> To verify your identity, we've generated a one-time password (OTP) code:
+            <h1> {otp} </h1>
+            <p> Please enter this code in the password reset page to proceed with resetting your password. </p>
+            <p> This code is valid for 30 minutes. If you have any issues resetting your password, please contact our support team at safemall202@gmail.com.
+            <p> For your security, we recommend choosing a strong and unique password. </p>
+            <p>Best regards, </p>
+            <p> Safemall </p>
+            <img src='https://safemall.pythonanywhere.com/media/image/img_tmp_tag1740339581455_1.jpg'/>
+            <body>
+            </html>
+"""
+
+            send_mail(subject=subject, recipient_list=recipient, message='', from_email=sender,html_message=html_content)
+            
+            return Response({'message': f'a password recovery code was sent to {user.email}'})
+        except Exception:
+            return Response({'message': 'error sending email'})
+        
+        
+
+class ResendOtpCodeView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+            user = request.user
+            try:
+                otp = secrets.token_hex(3)
+                otp_token = OtpTokenGenerator.objects.create(user=user, otp_token=make_password(otp), otp_expires_at=timezone.now() + timezone.timedelta(minutes=30))
+                otp_token.save()
+
+                subject = 'Password Reset'
+                recipient = [user.email]
+                sender = settings.EMAIL_HOST_USER
+                html_content = f""" 
+                <html>
+                <head>
+
+                </head>
+                <body>
+                <h1> Password Reset Email </h1>
+                <p> Dear {user.first_name}, </p>
+                <p> we received a request to reset your password for your safemall account. </p>
+                <p> To verify your identity, we've generated a one-time password (OTP) code:
+                <h1> {otp} </h1>
+                <p> Please enter this code in the password reset page to proceed with resetting your password. </p>
+                <p> This code is valid for 30 minutes. If you have any issues resetting your password, please contact our support team at safemall202@gmail.com.
+                <p> For your security, we recommend choosing a strong and unique password. </p>
+                <p>Best regards, </p>
+                <p> Safemall </p>
+                <img src='https://safemall.pythonanywhere.com/media/image/img_tmp_tag1740339581455_1.jpg'/>
+                <body>
+                </html>
+    """
+
+                send_mail(subject=subject, recipient_list=recipient, message='', from_email=sender,html_message=html_content)
+                data = {'message': f'a password reset code was sent to {user.email}' }
+                return Response(data)
+            except Exception:
+                return Response({'message': 'error sending email'})
+
+
+class ForgottenPasswordView(APIView):
+    
+    def get(self, request):
+        User = get_user_model()
+        email = request.data['email']
+        user = User.objects.filter(email=email).first()
+        if user:
+            try:
+                otp = secrets.token_hex(3)
+                otp_token = OtpTokenGenerator.objects.create(user=user, otp_token=make_password(otp), otp_expires_at=timezone.now() + timezone.timedelta(minutes=30))
+                otp_token.save()
+
+                subject = 'Forgotten Password'
+                recipient = [email]
+                sender = settings.EMAIL_HOST_USER
+                html_content = f""" 
+                <html>
+                <head>
+
+                </head>
+                <body>
+                <h1> Password Reset Email </h1>
+                <p> Dear {user.first_name}, </p>
+                <p> we received a request to reset your password for your safemall account. </p>
+                <p> To verify your identity, we've generated a one-time password (OTP) code:
+                <h1> {otp} </h1>
+                <p> Please enter this code in the password recovery page to proceed with resetting your password. </p>
+                <p> This code is valid for 30 minutes. If you have any issues resetting your password, please contact our support team at safemall202@gmail.com.
+                <p> For your security, we recommend choosing a strong and unique password. </p>
+                <p>Best regards, </p>
+                <p> Safemall </p>
+                <img src='https://safemall.pythonanywhere.com/media/image/img_tmp_tag1740339581455_1.jpg'/>
+                <body>
+                </html>
+    """
+
+                send_mail(subject=subject, recipient_list=recipient, message='', from_email=sender,html_message=html_content)
+                data = {'message': f'a password recovery code was sent to {email}',
+                        'email': email
+                        }
+                return Response(data)
+            except Exception:
+                return Response({'message': 'error sending email'})
+        else:
+            return Response({'message': 'email does not exist'})
+            
+
+class ResendOtpView(APIView):
+
+    def get(self, request, email):
+            User = get_user_model()
+            user = User.objects.filter(email=email).first()
+            try:
+                otp = secrets.token_hex(3)
+                otp_token = OtpTokenGenerator.objects.create(user=user, otp_token=make_password(otp), otp_expires_at=timezone.now() + timezone.timedelta(minutes=30))
+                otp_token.save()
+
+                subject = 'Forgotten Password'
+                recipient = [email]
+                sender = settings.EMAIL_HOST_USER
+                html_content = f""" 
+                <html>
+                <head>
+
+                </head>
+                <body>
+                <h1> Password Reset Email </h1>
+                <p> Dear {user.first_name}, </p>
+                <p> we received a request to reset your password for your safemall account. </p>
+                <p> To verify your identity, we've generated a one-time password (OTP) code:
+                <h1> {otp} </h1>
+                <p> Please enter this code in the password recovery page to proceed with resetting your password. </p>
+                <p> This code is valid for 30 minutes. If you have any issues resetting your password, please contact our support team at safemall202@gmail.com.
+                <p> For your security, we recommend choosing a strong and unique password. </p>
+                <p>Best regards, </p>
+                <p> Safemall </p>
+                <img src='https://safemall.pythonanywhere.com/media/image/img_tmp_tag1740339581455_1.jpg'/>
+                <body>
+                </html>
+    """
+
+                send_mail(subject=subject, recipient_list=recipient, message='', from_email=sender,html_message=html_content)
+                data = {'message': f'a password recovery code was sent to {email}',
+                        'email': email
+                        }
+                return Response(data)
+            except Exception:
+                return Response({'message': 'error sending email'})
+
+
+class OtpVerificationView(APIView):
+
+    def get(self, request, email):
+        otp = request.data['otp_token']
+        User = get_user_model()
+        user = get_object_or_404(User, email=email)
+        otp_token = OtpTokenGenerator.objects.filter(user=user).last()
+        if check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at > timezone.now():
+            data = {'message': 'otp verified',
+                    'email': user.email,
+                    }
+            return Response(data)
+        elif check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at < timezone.now():
+            return Response({'message': 'expired otp token'})
+        else:
+            return Response({'message': 'invalid otp token'})
+        
+
+    def post(self, request, email):
+        User = get_user_model()
+        password = request.data['password']
+        user = get_object_or_404(User, email=email)
+        user.password = password
+        user.set_password(password)
+        user.save()
+        return Response({'message': 'password resetted successfully'})
+
+
+
+class OtpCodeVerificationView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        otp = request.data['otp_token']
+        user = request.user
+        otp_token = OtpTokenGenerator.objects.filter(user=user).last()
+        if check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at > timezone.now():
+            data = {'message': 'otp verified'}
+            return Response(data)
+        elif check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at < timezone.now():
+            return Response({'message': 'expired otp token'})
+        else:
+            return Response({'message': 'invalid otp token'})
+        
+
+    def post(self, request):
+        password = request.data['password']
+        user = request.user
+        user.password = password
+        user.set_password(password)
+        user.save()
+        return Response({'message': 'password resetted successfully'})
+    
+
+
+class ResetTransactionPinView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        try:
+            otp = secrets.token_hex(3)
+            otp_token = TransactionOtpTokenGenerator.objects.create(user=user, otp_token=make_password(otp), otp_expires_at=timezone.now() + timezone.timedelta(minutes=15))
+            otp_token.save()        
+
+            subject = 'Transaction PIN Reset Request'
+            recipient = [user.email]
+            sender = settings.EMAIL_HOST_USER
+
+            html_body = f""" 
+                    <html>
+                    <head>
+
+                    </head>
+                    <body>
+                    <h1> Transaction PIN Reset Email </h1>
+                    <p> Dear {user.first_name}, </p>
+                    <p> we received a request to reset your transaction PIN for your safemall account. </p>
+                    <p> To verify your identity, we've generated a one-time password (OTP) code:
+                    <h1> {otp} </h1>
+                    <p> Please enter this code in the transaction PIN reset page to proceed with resetting your PIN. </p>
+                    <p> This code is valid for 15 minutes. If you have any issues resetting your PIN, please contact our support team at safemall202@gmail.com.
+                    <p> For your security, we recommend choosing a unique and confidential PIN. </p>
+                    <p>Best regards, </p>
+                    <p> Safemall </p>
+                    <img src='https://safemall.pythonanywhere.com/media/image/img_tmp_tag1740339581455_1.jpg'/>
+                    <body>
+                    </html>
+        """
+
+            send_mail(subject=subject, recipient_list=recipient, message='', from_email=sender, html_message=html_body, fail_silently=False)
+
+            return Response({'message': f'an otp code was sent to {user.email}'})
+        except Exception:
+            return Response({'message': 'error sending email'})
+        
+
+
+class VerifyTransactionOtp(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        otp = request.data['otp_token']
+        otp_token = TransactionOtpTokenGenerator.objects.filter(user=user).last()
+        if check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at > timezone.now():
+            data = {'message': 'otp verified'}
+            return Response(data)
+        elif check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at < timezone.now():
+            return Response({'message': 'expired otp token'})
+        else:
+            return Response({'message': 'invalid otp token'})
+        
+
+    def post(self, request):
+        pin = request.data['pin']
+        user = request.user
+        user.transaction_pin = make_password(pin)
+        user.save()
+        return Response({'message': 'pin resetted successfully'})
+    
+
+
+class CheckPasswordView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        password = request.data['password']
+        if check_password(password, user.password):
+            return Response({'message': 'valid password'})
+        else:
+            return Response({'message': 'invalid password'})
+
+
+class ResetEmailView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        email = request.data['email']
+        User = get_user_model()
+        user = request.user
+        if email:
+            if not User.objects.filter(email=email).exists():
+                user.email = email
+                user.email_verified = False
+                user.save()
+                return Response({'message': 'email changed successfully'})
+            else:
+                return Response({'message': 'email already exists'})
+        else:
+            return Response({'message': 'input an email address'})
+        
+
+class EmailVerificationView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user 
+        try:
+            otp = secrets.token_hex(3)
+            new_otp_token = EmailOtpTokenGenerator.objects.create(user=user, otp_token=make_password(otp), otp_expires_at = timezone.now() + timezone.timedelta(minutes=30))
+            new_otp_token.save()
+            sender = settings.EMAIL_HOST_USER
+            subject = 'Verify Your Email Address'
+            recipient = [user.email]
+            html_body = f""" 
+                        <html>
+                        <head>
+
+                        </head>
+                        <body>
+                        <h1> Email verification </h1>
+                        <p> Dear {user.first_name}, </p>
+                        <p> Thank you for creating an account with Safemall. </p>
+                        <p> To ensure that we can communicate with you securely, we need to verify your email address. </p>
+                        <p> Please enter the following verification code: </p>
+                        <h1> {otp} </h1>
+                        <p> This verification code is valid for 30 minutes. If you have any issues verifying your email address, please contact our support team at safemall202@gmail.com.
+                        <p> Thank you for your cooperation. </p>
+                        <p>Best regards, </p>
+                        <p> Safemall </p>
+                        <img src='https://safemall.pythonanywhere.com/media/image/img_tmp_tag1740339581455_1.jpg'/>
+                        <body>
+                        </html>
+            """
+            send_mail(from_email=sender, subject=subject, recipient_list=recipient, message='', html_message=html_body, fail_silently=False)
+            return Response({'message': f'an email verification code was sent to {user.email}'})
+        except Exception:
+            return Response({'message': 'error sending email'})
+        
+
+class EmailOtpVerificationView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        otp_code = request.data['otp_code']
+        user = request.user
+        otp_token = EmailOtpTokenGenerator.objects.filter(user=user).last()
+        if check_password(otp_code, otp_token.otp_token) and otp_token.otp_expires_at > timezone.now():
+            user.email_verified = True
+            return Response({'message': 'email verified'})
+        elif check_password(otp_code, otp_token.otp_token) and otp_token.otp_expires_at < timezone.now():
+            return Response({'message': 'expired otp token'})
+        else:
+            return Response({'message': 'invalid otp token'})
+        

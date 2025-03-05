@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-z=cqgca-z)!z_w0kevxp@ado#@2g-oja$9o@pyudvk!z21o*-!'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['Safemall.pythonanywhere.com', '127.0.0.1']
 
@@ -153,3 +153,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 load_dotenv()
+
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+EMAIL_PORT = 465
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True

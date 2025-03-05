@@ -3,7 +3,8 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
 from .forms import CustomUserCreationForm, CustomUserChangeForm
-from .models import CustomUser, BuyerProfile, TransactionPercentage, VendorProfile, OrderDetail, Product, ProductImage, ProductReview,Wallet, Pending, TransactionHistory
+from .models import (CustomUser, BuyerProfile, TransactionPercentage, VendorProfile, OrderDetail, Product,
+                      ProductImage, ProductReview,Wallet, Pending, TransactionHistory, OtpTokenGenerator, EmailOtpTokenGenerator, TransactionOtpTokenGenerator)
 
 # Register your models here.
 
@@ -39,7 +40,7 @@ class BuyerDisplay(admin.ModelAdmin):
 
 class VendorDisplay(admin.ModelAdmin):
     list_display = ['business_name', 'vendor_id', 'account_number', 'created_at']
-    readonly_fields = ['business_name', 'profile_image', 'account_number', 'vendor_id', 'business_address', 'business_description', 'business_phone_number', 'user']
+    readonly_fields = ['business_name', 'profile_image', 'account_number', 'vendor_id', 'business_address', 'business_description', 'business_phone_number', 'user', 'subscription_status', 'subscription_expires_at']
 
 
 class ProductDisplay(admin.ModelAdmin):
@@ -88,3 +89,6 @@ admin.site.register(Pending, PendingDisplay)
 admin.site.register(ProductReview, ProductReviewDisplay)
 admin.site.register(TransactionHistory,  TransactionHistoryDisplay)
 admin.site.register(TransactionPercentage, TransactionPercentageDisplay)
+admin.site.register(EmailOtpTokenGenerator)
+admin.site.register(OtpTokenGenerator)
+admin.site.register(TransactionOtpTokenGenerator)

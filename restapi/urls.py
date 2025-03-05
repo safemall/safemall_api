@@ -92,10 +92,10 @@ urlpatterns = [
     #API endpoint for viewing profile details
     path('profiledetails/', views.ProfileDetails.as_view(), name='profile_details'),
 
-
+    #API endpoint for subscriping vendors
     path('subscripevendor/', views.SubscriptionView.as_view(), name='vendor_subscription'),
 
-    
+    #API endpoint for setting transaction pin
     path('transactionpin/', views.SetTransactionPin.as_view(), name='transaction_pin'),
 
     #API endpoint for searching products based on product_name or vendor_name
@@ -115,5 +115,53 @@ urlpatterns = [
 
 
     #API endpoint for viewing products inventories
-    path('inventories/', views.InventoryView.as_view(), name='inventories')
+    path('inventories/', views.InventoryView.as_view(), name='inventories'),
+
+
+    #API endpoint for sending email with otp to logged in user to reset password
+    path('passwordreset/', views.PasswordResetView.as_view(), name='password_recovery'),
+
+
+    #API endpoint for users to type in their email and receives an otp code if the email exists in database
+    path('forgottenpassword/', views.ForgottenPasswordView.as_view(), name="forgotten_password"),
+
+
+    #API endpoint for users to request for another otp in forgotten password
+    path('resendotp/<str:email>/', views.ResendOtpView.as_view(), name='resend_otp'),
+
+
+    #API endpoint for users to request for another otp in reset password
+    path('resendotp/', views.ResendOtpCodeView.as_view(), name='resend_otp'),
+
+
+    #API endpoint for users to verify the otp token sent to their email in forgotten password
+    path('otpverification/<str:email>/', views.OtpVerificationView.as_view(), name='otp_verification'),
+
+
+    #API endpoint for users to verify the otp token sent to their emaill in reset password
+    path('otpverification/', views.OtpCodeVerificationView.as_view(), name='otpcode_verification'),
+
+
+    #API endpoint for sending email with otp to logged in user to reset transaction pin
+    path('resettransactionpin/', views.ResetTransactionPinView.as_view(), name='reset_transaction_pin'),
+
+
+    #API endpoint for verifying the otp token sent to user's email in reset transaction pin
+    path('verifytransactionotp/', views.VerifyTransactionOtp.as_view(), name='verify_transaction_otp'),
+
+
+    #API endpoint for checking if the inputted password is correct
+    path('checkpassword/', views.CheckPasswordView.as_view(), name="check_password"),
+
+
+    #API endpoint for changing the user's email with the inputted one
+    path('resetemail/', views.ResetEmailView.as_view(), name='reset_email'),
+
+
+    #API endpoint for sending email verification code to users
+    path('verifyemail/', views.EmailVerificationView.as_view(), name='email_verification'),
+
+    
+    #API endpoint for verifying the otp code sent to user's email for email verification 
+    path('verifyotp/', views.EmailOtpVerificationView.as_view(), name='verify_otp')
 ]

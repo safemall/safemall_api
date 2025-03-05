@@ -13,17 +13,18 @@ class UnwrappedListField(serializers.Field):
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(required=False)
-    profile_image = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True)
+    profile_image = serializers.ImageField(required=False, allow_null=True, allow_empty_file=True, use_url=True)
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
     fcm_token = serializers.CharField(required=False)
     phone_number = serializers.CharField(required=False)
     firebase_token = serializers.CharField(required=False)
+    transaction_pin = serializers.CharField(required=False)
 
     class Meta:
         user = get_user_model()
         model = user
-        fields = ['id','phone_number', 'firebase_token', 'profile_image', 'fcm_token', 'email', 'first_name', 'last_name', 'password']
+        fields = ['id','phone_number', 'firebase_token', 'profile_image', 'fcm_token', 'email', 'school', 'transaction_pin', 'first_name', 'last_name', 'password']
     
     def to_internal_value(self, data):
         User = get_user_model()
@@ -51,7 +52,7 @@ class BuyerSerializer(serializers.ModelSerializer):
 
 
 class VendorSerializer(serializers.ModelSerializer):
-    profile_image = serializers.ImageField(required=False, allow_null=True)
+    profile_image = serializers.ImageField(required=False, allow_null=True, use_url=True)
     business_address = serializers.CharField(required=False)
     business_description = serializers.CharField(required=False)
     business_phone_number = serializers.CharField(required=False)
@@ -65,6 +66,7 @@ class VendorSerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(use_url=True)
     
     class Meta:
         model = ProductImage
@@ -75,7 +77,7 @@ class ProductSerializer(serializers.ModelSerializer):
    
     class Meta:
         model = Product
-        fields = ['id', 'product_name', 'average_rating', 'product_description', 'discounted_price', 'percentage_discount', 'discounted_amount', 'vendor_identity', 'vendor_name', 'vendor_image',  'product_price', 'product_category', 'stock', 'quantity_sold', 'uploaded_at',
+        fields = ['id', 'product_name', 'average_rating', 'school', 'product_description', 'discounted_price', 'percentage_discount', 'discounted_amount', 'vendor_identity', 'vendor_name', 'vendor_image',  'product_price', 'product_category', 'stock', 'quantity_sold', 'uploaded_at',
                   'images']
         
         vendor_name = serializers.CharField(required=False)
