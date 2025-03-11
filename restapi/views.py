@@ -14,6 +14,9 @@ from django.contrib.auth import authenticate
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.db.models.fields.files import ImageFieldFile
+from django.db import transaction
+from .paystack import Paystack
+from rest_framework import status, generics
 from .transaction import Transaction, TransferFunds
 from django.contrib.auth.hashers import make_password, check_password
 from django.views.decorators.cache import cache_page
@@ -29,8 +32,8 @@ import uuid
 from django.core.cache import cache
 from django.db.models import Avg
 from django.utils import timezone
-import pyfcm
-import paystack
+from pyfcm import FCMNotification 
+import requests
 # Create your views here.
 
 #signup API for registering buyers
@@ -445,6 +448,18 @@ class OrderProductView(APIView):
                             product.stock -= int(quantity)
                             product.quantity_sold += int(quantity)
                             product.save()
+
+                            User = get_user_model()
+                            vendor_user_model = User.objects.get(email=vendor.vendor_email)
+                            vendor_token = vendor_user_model.fcm_token
+                            fcm = FCMNotification(api_key=settings.FCM_API_KEY)
+                            message = f'You have a pending order from {request.user.first_name}'
+                            data_message = {
+                                'body': message,
+                                'title': 'Push Notification'
+                            }
+                            response = fcm.notify(registration_id=vendor_token, data_message=data_message)
+                            
                             
                             return Response(order_serializer.data, status=status.HTTP_201_CREATED)
                         else:      
@@ -1250,6 +1265,10 @@ class ResetEmailView(APIView):
                 user.email = email
                 user.email_verified = False
                 user.save()
+                vendor = VendorProfile.objects.filter(user=user).first()
+                if vendor:
+                    vendor.vendor_email = email
+                    vendor.save()
                 return Response({'message': 'email changed successfully'})
             else:
                 return Response({'message': 'email already exists'})
@@ -1312,3 +1331,132 @@ class EmailOtpVerificationView(APIView):
         else:
             return Response({'message': 'invalid otp token'})
         
+
+
+class DepositMoneyView(APIView):
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            amount = int(request.data['amount'])
+            email = request.user.email
+
+            paystack_response = Paystack.initialize_transaction(email, amount)
+
+            if paystack_response.get('status'):
+
+                data = {
+                    'message': 'transaction initialized',
+                    'data': paystack_response['data']
+                }
+                return Response(data, status=status.HTTP_200_OK)
+            else:
+                return Response(paystack_response, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({'message': 'Deposit error'})
+        
+
+class VerifyDepositView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        try:
+            reference = request.data['reference']
+            paystack_response = Paystack.verify_transaction(reference)
+
+            if paystack_response.get('status'):
+                data = paystack_response.get('data')
+                response_status = data['status']
+                amount = Decimal(data['amount'])/100 #convert to naira
+                email = data['customer']['email']
+
+                if response_status == 'success':
+                    wallet = Wallet.objects.get(user=request.user)
+                    wallet.funds += amount
+                    wallet.save()
+
+                    data = {
+                        'message': 'deposit successful',
+                        'new_balance': wallet.funds
+                    }
+                    return Response(data, status=status.HTTP_200_OK)
+                else:
+                    return Response({'error': 'transaction failed'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({'message': 'Deposit error, try refreshing'})
+        
+
+
+class FindRecipientView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            account_number = request.data['account_number']
+            bank_code = request.data['bank_code']
+
+            paystack_response = Paystack.find_recipient(account_number, bank_code)
+
+            if paystack_response.status_code == 200 and paystack_response.json().get('status'):
+                account_name = paystack_response.json()['data']['account_name']
+                return Response({'account_name': account_name})
+            else:
+                data = {
+                    'message': 'error resolving account',
+                    'data': paystack_response.json()
+                }
+                return Response(data)
+        except Exception as e:
+            print(e)
+            return Response({'message': 'error getting account details'})
+
+
+class WithdrawFundsView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            recipient_name = request.data['recipient_name']
+            recipient_account_number = request.data['recipient_account_number']
+            recipient_bank_code = request.data['recipient_bank_code']
+            recipient_amount = request.data['recipient_amount']
+
+            paystack_response = Paystack.create_transfer_recipient(recipient_account_number, recipient_bank_code, recipient_name)
+            recipient_data = paystack_response.json()
+
+            if paystack_response.status_code not in [200, 201] or not recipient_data.get('status'):
+                data = {'message': 'error creating tranfer recipient',
+                        'error': recipient_data
+                        }
+                return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                recipient_code = recipient_data['data']['recipient_code']
+
+                transfer_response = Paystack.initiate_transfer(recipient_amount, recipient_code)
+                transfer_data = transfer_response.json()
+
+                if transfer_response.status_code not in [200, 201] or not transfer_data.get('status'):
+                    data = {
+                        'message': 'error initiating transfer',
+                        'error': transfer_data
+                            }
+                    return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                else:
+                    transfer_code = transfer_data['data']['transfer_code']
+                    #wallet = Wallet.objects.get(user=request.user)
+                    #wallet.funds -= Decimal
+                    #wallet.save()
+                    data = {
+                        'message': 'transfer initiated successfully',
+                        'transfer_code': transfer_code
+                    }
+                    return Response(data)
+        except Exception:
+            return Response({'message': 'an error occured'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

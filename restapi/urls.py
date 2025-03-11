@@ -163,5 +163,14 @@ urlpatterns = [
 
     
     #API endpoint for verifying the otp code sent to user's email for email verification 
-    path('verifyotp/', views.EmailOtpVerificationView.as_view(), name='verify_otp')
+    path('verifyotp/', views.EmailOtpVerificationView.as_view(), name='verify_otp'),
+
+
+    path('deposit/', views.DepositMoneyView.as_view(), name='deposit_money'),
+
+    path('verifydeposit/', views.VerifyDepositView.as_view(), name='verify_dposit'),
+
+    path('withdrawal/', views.WithdrawFundsView.as_view(), name='withdrawal'),
+
+    path('findrecipient/', views.FindRecipientView.as_view(), name='find_recipient')
 ]

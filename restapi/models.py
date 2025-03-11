@@ -264,7 +264,8 @@ class TransactionHistory(models.Model):
     CHOICES = (
         ('Order', 'Order'),
         ('Reverse payment', 'Reverse payment'),
-        ('Transfer', 'Transfer')
+        ('Transfer', 'Transfer'),
+        ('Deposit', 'Deposit'),
     )
 
     TRANSACTION = (
