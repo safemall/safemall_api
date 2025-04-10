@@ -17,10 +17,9 @@ class Transaction:
 
 class TransferFunds:
     def __init__(self, sender, recipient, amount):
-        percentage = Decimal(amount) * Decimal(0.03)
         self.sender = sender
         self.recipient = recipient
-        self.amount = Decimal(amount) + percentage
+        self.amount = Decimal(amount)
         self.real_amount = amount
 
     def payment(self):

@@ -43,7 +43,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
 class OtpTokenGenerator(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    otp_token = models.CharField(max_length=6)
+    otp_token = models.CharField(max_length=255)
     otp_created_at = models.DateTimeField(auto_now_add=True)
     otp_expires_at = models.DateTimeField(null=True, blank=True)
 
@@ -51,14 +51,14 @@ class OtpTokenGenerator(models.Model):
 
 class TransactionOtpTokenGenerator(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    otp_token = models.CharField(max_length=6)
+    otp_token = models.CharField(max_length=255)
     otp_created_at = models.DateTimeField(auto_now_add=True)
     otp_expires_at = models.DateTimeField(null=True, blank=True)
   
 
 class EmailOtpTokenGenerator(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    otp_token = models.CharField(max_length=6)
+    otp_token = models.CharField(max_length=255)
     otp_created_at = models.DateTimeField(auto_now_add=True)
     otp_expires_at = models.DateTimeField(null=True, blank=True)
 

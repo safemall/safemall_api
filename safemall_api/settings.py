@@ -167,3 +167,13 @@ PAYSTACK_PUBLIC_KEY = os.getenv('PAYSTACK_PUBLIC_KEY')
 
 
 FCM_API_KEY = os.getenv('FCM_API_KEY')
+
+FCM_PROJECT_ID = os.getenv('FCM_PROJECT_ID')
+
+JAZZMIN_SETTINGS = {
+    'site_header': 'Safemall',
+    'site_title': 'Safemall Admin',
+    'site_brand': 'Safemall Admin ',
+    'welcome_sign': 'Welcome to Safemall Admin Panel',
+    'copyright': 'Safemall'
+}

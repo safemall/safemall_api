@@ -2,6 +2,8 @@ from django.shortcuts import render
 from rest_framework.response import Response
 from django.conf import settings
 from rest_framework.views import APIView
+import firebase_admin
+from firebase_admin import credentials, messaging
 from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.http import Http404
@@ -448,18 +450,23 @@ class OrderProductView(APIView):
                             product.stock -= int(quantity)
                             product.quantity_sold += int(quantity)
                             product.save()
+                            cache.delete(cache_key)
 
                             User = get_user_model()
                             vendor_user_model = User.objects.get(email=vendor.vendor_email)
                             vendor_token = vendor_user_model.fcm_token
-                            fcm = FCMNotification(api_key=settings.FCM_API_KEY)
-                            message = f'You have a pending order from {request.user.first_name}'
-                            data_message = {
-                                'body': message,
-                                'title': 'Push Notification'
-                            }
-                            response = fcm.notify(registration_id=vendor_token, data_message=data_message)
-                            
+                            cred = credentials.Certificate('path/to/firebase_credentials.json')
+                            firebase_admin.initialize_app(cred)
+                            message = messaging.Message(
+                                notification=messaging.Notification(
+                                    title='Push Notification',
+                                    body=f'You have a pending order from {request.user.first_name}'
+                                ),
+                                token=vendor_token,
+
+                            )
+                            messaging.send(message)                 
+    
                             
                             return Response(order_serializer.data, status=status.HTTP_201_CREATED)
                         else:      
@@ -508,7 +515,7 @@ class VendorPayment(APIView):
                     else:
                         return Response({'message': 'invalid order id or otp token'})   
                 else:
-                    return Response({'message': 'invalid vendor identity'})       
+                    return Response({'message': 'invalid transaction'})       
             else:
                 return Response({'message': 'invalid order id or otp token'})
         else:
@@ -605,10 +612,6 @@ class TranferView(APIView):
                     if request.user.email_verified:
                         transfer = TransferFunds(sender, recipient, amount)
                         if transfer.payment():
-                            percentage = Decimal(amount) * Decimal(0.03)
-                            transaction_percentage = get_object_or_404(TransactionPercentage, name='Transaction percentage')
-                            transaction_percentage.balance += percentage
-                            transaction_percentage.save()
                             sender_transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Debit', transaction_type='Transfer', transaction_amount=amount,
                                                                                     sender=str(sender.first_name)+' '+str(sender.last_name), recipient=str(recipient.first_name)+' '+str(recipient.last_name))
                             sender_transaction_history.save()
@@ -617,6 +620,7 @@ class TranferView(APIView):
                                                                                     sender=str(sender.first_name)+' '+str(sender.last_name), recipient=str(recipient.first_name)+' '+str(recipient.last_name))
                             recipient_transaction_history.save()
                             serializer = TransactionSerializer(sender_transaction_history)
+                            cache.delete(cache_key)
                             data = {
                                 'message': 'transaction done successfully',
                                 'receipt': serializer.data
@@ -827,7 +831,7 @@ class SearchProduct(APIView):
     def get(self, request):
         search_query = request.GET.get('search')
         if search_query is not None:
-            product = Product.objects.filter(product_name__icontains=search_query) | Product.objects.filter(vendor_name__icontains=search_query)
+            product = Product.objects.filter(product_name__icontains=search_query).order_by('-uploaded_at')  | Product.objects.filter(vendor_name__icontains=search_query).order_by('-uploaded_at')  and Product.objects.filter(school=request.user.school).order_by('-uploaded_at') 
             serializer = ProductSerializer(product, many=True)
             return Response(serializer.data)
         else:
@@ -1325,6 +1329,7 @@ class EmailOtpVerificationView(APIView):
         otp_token = EmailOtpTokenGenerator.objects.filter(user=user).last()
         if check_password(otp_code, otp_token.otp_token) and otp_token.otp_expires_at > timezone.now():
             user.email_verified = True
+            user.save()
             return Response({'message': 'email verified'})
         elif check_password(otp_code, otp_token.otp_token) and otp_token.otp_expires_at < timezone.now():
             return Response({'message': 'expired otp token'})
@@ -1379,6 +1384,8 @@ class VerifyDepositView(APIView):
                     wallet.funds += amount
                     wallet.save()
 
+                    
+
                     data = {
                         'message': 'deposit successful',
                         'new_balance': wallet.funds
@@ -1412,7 +1419,6 @@ class FindRecipientView(APIView):
                 }
                 return Response(data)
         except Exception as e:
-            print(e)
             return Response({'message': 'error getting account details'})
 
 
@@ -1459,4 +1465,53 @@ class WithdrawFundsView(APIView):
                     return Response(data)
         except Exception:
             return Response({'message': 'an error occured'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+class GeneralSearchView(APIView):
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+
+    def get(self, request):
+        search_query = request.GET.get('search')
+        product_school = request.data['school']
+        if search_query is not None:
+
+            if product_school:
+                product = Product.objects.filter(product_name__icontains=search_query).order_by('-uploaded_at') | Product.objects.filter(vendor_name__icontains=search_query).order_by('-uploaded_at')  and Product.objects.filter(school=product_school).order_by('-uploaded_at') 
+                serializer = ProductSerializer(product, many=True)
+                return Response(serializer.data)
+            else:  
+                product = Product.objects.filter(product_name__icontains=search_query).order_by('-uploaded_at')  | Product.objects.filter(vendor_name__icontains=search_query).order_by('-uploaded_at')  
+                serializer = ProductSerializer(product, many=True)
+                return Response(serializer.data)
+        else:
+            return Response({'message': []})
+
+
+class SchoolFilterView(APIView):
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        school = request.data['product_school']
+        category = request.data['product_category']
+
+        if school and not category:
+            product = Product.objects.filter(school=school).order_by('-uploaded_at') 
+            serializer = ProductSerializer(product, many=True)
+            return Response(serializer.data)
+        elif category and not school:
+            product = Product.objects.filter(product_category=category).order_by('-uploaded_at') 
+            serializer = ProductSerializer(product, many=True)
+            return Response(serializer.data)
+        elif category and school:
+            product = Product.objects.filter(product_category=category).order_by('-uploaded_at') and Product.objects.filter(school=school).order_by('-uploaded_at') 
+            serializer = ProductSerializer(product, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({'message': 'please provide an input'})
 
