@@ -93,7 +93,7 @@ urlpatterns = [
     path('profiledetails/', views.ProfileDetails.as_view(), name='profile_details'),
 
     #API endpoint for subscriping vendors
-    path('subscripevendor/', views.SubscriptionView.as_view(), name='vendor_subscription'),
+    path('subscribevendor/', views.SubscriptionView.as_view(), name='vendor_subscription'),
 
     #API endpoint for setting transaction pin
     path('transactionpin/', views.SetTransactionPin.as_view(), name='transaction_pin'),

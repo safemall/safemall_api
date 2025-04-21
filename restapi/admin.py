@@ -40,7 +40,7 @@ class BuyerDisplay(admin.ModelAdmin):
 
 class VendorDisplay(admin.ModelAdmin):
     list_display = ['business_name', 'vendor_id', 'account_number', 'created_at']
-    readonly_fields = ['business_name', 'profile_image', 'account_number', 'vendor_id', 'business_address', 'business_description', 'business_phone_number', 'user', 'subscription_status', 'subscription_expires_at']
+    readonly_fields = ['business_name', 'profile_image', 'account_number', 'vendor_id', 'vendor_email', 'business_address', 'business_description', 'business_phone_number', 'user', 'subscription_status', 'subscribed_at', 'subscription_expires_at']
 
 
 class ProductDisplay(admin.ModelAdmin):

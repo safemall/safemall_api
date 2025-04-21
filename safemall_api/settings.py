@@ -45,8 +45,6 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
 
     'restapi',
-    
-    'pyfcm'
 ]
 
 MIDDLEWARE = [

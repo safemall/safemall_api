@@ -92,6 +92,7 @@ class VendorProfile(models.Model):
     profile_image = models.ImageField(upload_to='image')
     business_address = models.CharField(max_length=500)
     subscription_status = models.BooleanField(default=False)
+    subscribed_at = models.DateTimeField(null=True, blank=True)
     subscription_expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -113,6 +114,7 @@ class VendorProfile(models.Model):
     def subscripe_for_two_hours(self):
         self.subscription_status = True
         self.subscription_expires_at = timezone.now() + timezone.timedelta(hours=2)
+        self.subscribed_at = timezone.now()
         self.save()
 
     
@@ -155,6 +157,7 @@ class Product(models.Model):
     average_rating = models.FloatField(default=0)
     vendor_image = models.ImageField(upload_to='image', null=True, blank=True, default='')
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.product_name
@@ -232,7 +235,7 @@ class Wallet(models.Model):
     account_number = models.CharField(max_length=10)
     first_name = models.CharField(max_length=200)
     last_name = models.CharField(max_length=200)
-    funds = models.DecimalField(max_digits=7, decimal_places=2, default=0.00)
+    funds = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
 
     def deposit(self, amount):
@@ -253,9 +256,9 @@ class Pending(models.Model):
     product_id = models.IntegerField(default=0)
     order_id = models.CharField(max_length=80)
     account_number = models.CharField(max_length=10, default='')
-    otp_token = models.CharField(max_length=10)
+    otp_token = models.CharField(max_length=255)
     quantity = models.IntegerField(default=0)
-    amount = models.DecimalField(max_digits=7, decimal_places=2, default=0.00)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     reverse_payment = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -274,9 +277,10 @@ class TransactionHistory(models.Model):
     )
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    transaction_id = models.CharField(max_length=21, default='')
     transaction = models.CharField(max_length=20, choices=TRANSACTION, default='')
     transaction_type = models.CharField(max_length=20, choices=CHOICES, default='')
-    transaction_amount = models.DecimalField(max_digits=7, decimal_places=2, default=0.00)
+    transaction_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     sender = models.CharField(max_length=500, default='')
     recipient = models.CharField(max_length=20, default='')
     product_name = models.CharField(max_length=200, default='')
@@ -287,7 +291,7 @@ class TransactionHistory(models.Model):
 
 class TransactionPercentage(models.Model):
     name = models.CharField(max_length=50, default='Transaction percentage')
-    balance = models.DecimalField(max_digits=9, decimal_places=2, default=0.00)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     reset = models.BooleanField(default=False)
 
     def __str__(self):
@@ -296,5 +300,5 @@ class TransactionPercentage(models.Model):
 
 class SubscriptionFunds(models.Model):
     name = models.CharField(max_length=50, default='Subscription funds')
-    balance = models.DecimalField(max_digits=9, decimal_places=2, default=0.00)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     reset = models.BooleanField(default=False)

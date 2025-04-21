@@ -20,11 +20,12 @@ class UserSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(required=False)
     firebase_token = serializers.CharField(required=False)
     transaction_pin = serializers.CharField(required=False)
+    email_verified = serializers.BooleanField(required=False)
 
     class Meta:
         user = get_user_model()
         model = user
-        fields = ['id','phone_number', 'firebase_token', 'profile_image', 'fcm_token', 'email', 'school', 'transaction_pin', 'first_name', 'last_name', 'password']
+        fields = ['id','phone_number', 'firebase_token', 'profile_image', 'fcm_token', 'email', 'email_verified', 'school', 'transaction_pin', 'first_name', 'last_name', 'password']
     
     def to_internal_value(self, data):
         User = get_user_model()
@@ -74,10 +75,11 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
-   
+    updated_at = serializers.DateTimeField(required=False)
+
     class Meta:
         model = Product
-        fields = ['id', 'product_name', 'average_rating', 'school', 'product_description', 'discounted_price', 'percentage_discount', 'discounted_amount', 'vendor_identity', 'vendor_name', 'vendor_image',  'product_price', 'product_category', 'stock', 'quantity_sold', 'uploaded_at',
+        fields = ['id', 'product_name', 'average_rating', 'school', 'product_description', 'discounted_price', 'percentage_discount', 'discounted_amount', 'vendor_identity', 'vendor_name', 'vendor_image',  'product_price', 'product_category', 'stock', 'quantity_sold', 'uploaded_at', 'updated_at',
                   'images']
         
         vendor_name = serializers.CharField(required=False)
@@ -155,6 +157,7 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     transaction = serializers.CharField(required=False)
     transaction_type = serializers.CharField(required=False)
+    transaction_id = serializers.CharField(required=False)
     recipient = serializers.CharField(required=False)
     sender = serializers.CharField(required=False)
     product_name = serializers.CharField(required=False)
@@ -162,4 +165,4 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TransactionHistory
-        fields = ['transaction', 'transaction_type', 'transaction_amount', 'recipient', 'sender', 'product_name', 'product_quantity', 'created_at']
+        fields = ['transaction', 'transaction_type', 'transaction_id', 'transaction_amount', 'recipient', 'sender', 'product_name', 'product_quantity', 'created_at']

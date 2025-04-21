@@ -7,6 +7,7 @@ from firebase_admin import credentials, messaging
 from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.http import Http404
+from django.db.models.functions import Lower
 from .serializers import UserSerializer, BuyerSerializer, VendorSerializer, ProductSerializer,OrderDetailForVendorsSerializer, OrderDetailSerializer, ProductImageSerializer, ProductReviewSerializer, WalletSerializer, TransactionSerializer, TransferWalletSerializer
 from .models import (BuyerProfile, TransactionOtpTokenGenerator, VendorProfile, Product,TransactionPercentage , EmailOtpTokenGenerator,
                      OrderDetail, ProductImage, ProductReview, OtpTokenGenerator, Pending, Wallet, TransactionHistory)
@@ -34,9 +35,11 @@ import uuid
 from django.core.cache import cache
 from django.db.models import Avg
 from django.utils import timezone
-from pyfcm import FCMNotification 
 import requests
 # Create your views here.
+
+# cred = credentials.Certificate('path/to/firebase_credentials.json')
+#firebase_admin.initialize_app(cred)
 
 #signup API for registering buyers
 class BuyerSignupApi(APIView):
@@ -251,7 +254,7 @@ class ProductUploadView(APIView):
                         return Response({'message': 'product discount cannot be greater than product price'})
                     else:
                         if serializer.is_valid():
-                            product = Product.objects.create(vendor=vendor, product_name=request.data['product_name'], vendor_image=vendor_image, discounted_amount=request.data['discounted_amount'], stock=request.data['stock'], product_description=request.data['product_description'], product_category=request.data['product_category'], vendor_name=name,
+                            product = Product.objects.create(vendor=vendor, product_name=str(request.data['product_name']).capitalize, vendor_image=vendor_image, discounted_amount=request.data['discounted_amount'], stock=request.data['stock'], product_description=request.data['product_description'], product_category=request.data['product_category'], vendor_name=name,
                                                             vendor_identity=identity, product_price=request.data['product_price'],school=user.school)
                             price = int(product.discounted_amount) / int(product.product_price)
                             discounted_price = int(product.product_price) - int(product.discounted_amount)
@@ -327,7 +330,7 @@ class ProductDetailsView(APIView):
                 return Response({'message': 'product stock is not up to the quantity inputted'})            
         
 
-        
+    @transaction.atomic        
     def patch(self, request, product_id):
         product = self.get_object(product_id)
         serializer = ProductSerializer(product, data=request.data)
@@ -344,9 +347,10 @@ class ProductDetailsView(APIView):
                         price = int(product.discounted_amount) / int(product.product_price)
                         discounted_price = int(product.product_price) - int(product.discounted_amount)
                         percentage = price * 100
-                        product.percentage_discount = percentage
+                        product.percentage_discount = round(percentage)
                         product.discounted_price = discounted_price
-                        product.save()
+                        product.updated_at = timezone.now()
+                        product.save() 
 
                         image_id = request.data.get('image_id')
                         new_image = request.FILES.getlist('uploaded_images')
@@ -369,16 +373,13 @@ class ProductDetailsView(APIView):
     def delete(self, request, product_id):
         product = self.get_object(product_id)
         vendor = get_object_or_404(VendorProfile, user=request.user)
-        if vendor.subscription_expires_at is not None and vendor.subscription_expires_at < timezone.now():
-            vendor.unsubscripe()
-        if vendor.is_subscriped():
-            if vendor.vendor_id == product.vendor_identity:
-                product.delete()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            else:
-                return Response({'message': 'invalid vendor'})
+       
+        if vendor.vendor_id == product.vendor_identity:
+            product.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         else:
-            return Response({'message': 'subscription is out of date'})
+            return Response({'message': 'invalid vendor'})
+
         
 
 class ProductImageView(APIView):
@@ -406,7 +407,7 @@ class OrderProductView(APIView):
         }
         return Response(data)
     
-    
+    @transaction.atomic
     def post(self, request, product_id):
         serializer = OrderDetailSerializer(data=request.data)
         product = get_object_or_404(Product, id=product_id)
@@ -439,12 +440,12 @@ class OrderProductView(APIView):
                             order = OrderDetail.objects.create(user = request.user, order_id = uuid.uuid4(), order_otp_token = secrets.token_hex(4), first_name=request.data['first_name'], last_name=request.data['last_name'], address=request.data['address'], phone_number=request.data['phone_number'], email_address=request.data['email_address'], 
                                                                 product_name=name, product_image = order_image.image, product_price=price, vendor_name=vendor_name, vendor_id =vendor_id, product_quantity=quantity, total_price = total_sum)      
                             order.save()
-                            pending_payment = Pending.objects.create(product_id=product_id, quantity=quantity, order_id=order.order_id, account_number=customer_wallet.account_number, otp_token=order.order_otp_token, amount=total_sum)
+                            pending_payment = Pending.objects.create(product_id=product_id, quantity=quantity, order_id=order.order_id, account_number=customer_wallet.account_number, otp_token=make_password(order.order_otp_token), amount=total_sum)
                             pending_payment.save()
                             transaction_percentage = get_object_or_404(TransactionPercentage, name='Transaction percentage')
                             transaction_percentage.balance += Decimal(percentage)
                             transaction_percentage.save()
-                            transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Debit', transaction_type='Order', transaction_amount=total_sum, recipient=vendor_name, sender=str(customer_wallet.first_name)+' '+str(customer_wallet.last_name), product_name=name, product_quantity=quantity)
+                            transaction_history = TransactionHistory.objects.create(user=request.user, transaction_id=str(uuid.uuid4().int)[:20], transaction='Debit', transaction_type='Order', transaction_amount=total_sum, recipient=vendor_name, sender=str(customer_wallet.first_name)+' '+str(customer_wallet.last_name), product_name=name, product_quantity=quantity)
                             transaction_history.save()
                             order_serializer = OrderDetailSerializer(order)                
                             product.stock -= int(quantity)
@@ -453,19 +454,24 @@ class OrderProductView(APIView):
                             cache.delete(cache_key)
 
                             User = get_user_model()
-                            vendor_user_model = User.objects.get(email=vendor.vendor_email)
+                            vendor_user_model = get_object_or_404(User, email=vendor.vendor_email)
                             vendor_token = vendor_user_model.fcm_token
-                            cred = credentials.Certificate('path/to/firebase_credentials.json')
-                            firebase_admin.initialize_app(cred)
-                            message = messaging.Message(
-                                notification=messaging.Notification(
-                                    title='Push Notification',
-                                    body=f'You have a pending order from {request.user.first_name}'
-                                ),
-                                token=vendor_token,
 
-                            )
-                            messaging.send(message)                 
+                            if vendor_token:
+                                message = messaging.Message(
+                                    notification=messaging.Notification(
+                                        title=f'{vendor_user_model.first_name}, you are making sales!',
+                                        body=f'You have a pending order from {request.user.first_name} {request.user.last_name}'
+                                    ),
+                                    token=vendor_token,
+
+                                )
+                                try:
+                                    messaging.send(message)
+                                except messaging.FirebaseError as e:
+                                    if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
+                                        vendor_token = ''
+                                        vendor_user_model.save()
     
                             
                             return Response(order_serializer.data, status=status.HTTP_201_CREATED)
@@ -487,7 +493,7 @@ class VendorPayment(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-
+    @transaction.atomic
     def post(self, request):
         order_id = request.data['order_id']
         otp_token = request.data['otp_token']
@@ -500,12 +506,12 @@ class VendorPayment(APIView):
                 order = OrderDetail.objects.filter(order_id=order_id).first()
                 
                 if str(current_vendor.vendor_id) == order.vendor_id:
-                    if otp_token == pending_funds.otp_token:
+                    if check_password(otp_token, pending_funds.otp_token):
                 
                         wallet = get_object_or_404(Wallet, user=request.user)
                         wallet.funds += pending_funds.amount
                         wallet.save()
-                        transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Credit', transaction_type='Order', transaction_amount=pending_funds.amount, product_name=order.product_name, sender=order.order_id, product_quantity=order.product_quantity)
+                        transaction_history = TransactionHistory.objects.create(user=request.user, transaction_id=str(uuid.uuid4().int)[:20], transaction='Credit', transaction_type='Order', transaction_amount=pending_funds.amount, product_name=order.product_name, sender=order.order_id, product_quantity=order.product_quantity)
                         transaction_history.save()
                         order.payment_status = 'Paid and Confirmed'
                         order.order_status = 'Delivered'
@@ -536,7 +542,7 @@ class WalletView(APIView):
                 if items.reverse_payment:
                     wallet.funds += items.amount
                     wallet.save()
-                    transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Credit', transaction_type='Reverse payment', transaction_amount=items.amount, sender='Safemall reverse payment', recipient=str(wallet.first_name)+' '+str(wallet.last_name) )
+                    transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Credit', transaction_type='Reverse payment', transaction_id=str(uuid.uuid4().int)[:20], transaction_amount=items.amount, sender='Safemall reverse payment', recipient=str(wallet.first_name)+' '+str(wallet.last_name) )
                     transaction_history.save()
                     order = get_object_or_404(OrderDetail, order_id=items.order_id)
                     order.payment_status = 'Payment Reversed'
@@ -547,13 +553,10 @@ class WalletView(APIView):
                         product.stock += items.quantity
                         product.quantity_sold -= items.quantity
                         product.save()
-                    pending.delete()
-                    wallet_serializer = WalletSerializer(wallet)
-                    data = {
-                        'message' :'you have been refunded successfully',
-                        'wallet' : wallet_serializer.data
-                    }
-                    return Response(data)
+                    items.delete()
+            wallet_serializer = WalletSerializer(wallet)
+            data = wallet_serializer.data
+            return Response(data)
         else:
             serializer = WalletSerializer(wallet)
             return Response(serializer.data)
@@ -596,7 +599,7 @@ class TranferView(APIView):
         else:
             return Response({'message': 'input an account number'})
 
-
+    @transaction.atomic
     def post(self, request):
         amount = request.data['amount']
         pin = request.data['pin']
@@ -606,17 +609,17 @@ class TranferView(APIView):
         if account_number:
             if request.user.transaction_pin == '':
                 return Response({'message':'you have not set your transaction pin'})
-            if pin == request.user.transaction_pin:
+            if check_password(pin, request.user.transaction_pin):
                 recipient = get_object_or_404(Wallet, account_number=account_number)
                 if recipient.user != request.user:
                     if request.user.email_verified:
                         transfer = TransferFunds(sender, recipient, amount)
                         if transfer.payment():
-                            sender_transaction_history = TransactionHistory.objects.create(user=request.user, transaction='Debit', transaction_type='Transfer', transaction_amount=amount,
+                            sender_transaction_history = TransactionHistory.objects.create(user=request.user, transaction_id=str(uuid.uuid4().int)[:20], transaction='Debit', transaction_type='Transfer', transaction_amount=amount,
                                                                                     sender=str(sender.first_name)+' '+str(sender.last_name), recipient=str(recipient.first_name)+' '+str(recipient.last_name))
                             sender_transaction_history.save()
 
-                            recipient_transaction_history = TransactionHistory.objects.create(user=recipient.user, transaction='Credit', transaction_type='Transfer', transaction_amount=amount,
+                            recipient_transaction_history = TransactionHistory.objects.create(user=recipient.user, transaction_id=str(uuid.uuid4().int)[:20], transaction='Credit', transaction_type='Transfer', transaction_amount=amount,
                                                                                     sender=str(sender.first_name)+' '+str(sender.last_name), recipient=str(recipient.first_name)+' '+str(recipient.last_name))
                             recipient_transaction_history.save()
                             serializer = TransactionSerializer(sender_transaction_history)
@@ -625,6 +628,24 @@ class TranferView(APIView):
                                 'message': 'transaction done successfully',
                                 'receipt': serializer.data
                             }
+
+                            User = recipient.user
+                            recipient_token = User.fcm_token
+                            if recipient_token:
+                                message = messaging.Message(
+                                    notification=messaging.Notification(
+                                        title='Credit Alert!',
+                                        body=f'Your account has been funded with ₦{amount} by  {request.user.first_name} {request.user.last_name}'
+                                    ),
+                                    token=recipient_token,
+
+                                )
+                                try:
+                                    messaging.send(message)
+                                except messaging.FirebaseError as e:
+                                    if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
+                                        recipient_token = ''
+                                        User.save()
                             return Response(data)
                         else:
                             return Response({'message': 'insufficient fund'})
@@ -647,7 +668,7 @@ class ClothesPageView(APIView):
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         user = request.user
-        clothpage = Product.objects.filter(product_category='clothes').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
+        clothpage = Product.objects.filter(product_category='clothes').order_by('-uploaded_at')
         clothserializer = ProductSerializer(clothpage, many=True)
         return Response(clothserializer.data)
     
@@ -660,7 +681,7 @@ class FoodPageView(APIView):
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         user = request.user
-        foodpage = Product.objects.filter(product_category='food').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
+        foodpage = Product.objects.filter(product_category='food').order_by('-uploaded_at')
         foodserializer = ProductSerializer(foodpage, many=True)
         return Response(foodserializer.data)
     
@@ -672,7 +693,7 @@ class FootwearsPageView(APIView):
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         user = request.user
-        footwearpage = Product.objects.filter(product_category='footwears').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
+        footwearpage = Product.objects.filter(product_category='footwears').order_by('-uploaded_at')
         footwearserializer = ProductSerializer(footwearpage, many=True)
         return Response(footwearserializer.data)
     
@@ -684,7 +705,7 @@ class AccessoriesPageView(APIView):
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         user = request.user
-        accessoriespage = Product.objects.filter(product_category='accessories').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
+        accessoriespage = Product.objects.filter(product_category='accessories').order_by('-uploaded_at')
         accessoriesserializer = ProductSerializer(accessoriespage, many=True)
         return Response(accessoriesserializer.data)
     
@@ -696,7 +717,7 @@ class BeautyPageView(APIView):
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         user = request.user
-        beautypage = Product.objects.filter(product_category='beauty').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
+        beautypage = Product.objects.filter(product_category='beauty').order_by('-uploaded_at')
         beautyserializer = ProductSerializer(beautypage, many=True)
         return Response(beautyserializer.data)
     
@@ -708,7 +729,7 @@ class HouseholdPageView(APIView):
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         user = request.user
-        householdpage = Product.objects.filter(product_category='household').order_by('-uploaded_at') and Product.objects.filter(school=user.school).order_by('-uploaded_at')
+        householdpage = Product.objects.filter(product_category='household').order_by('-uploaded_at')
         householdserializer = ProductSerializer(householdpage, many=True)
         return Response(householdserializer.data)
     
@@ -721,7 +742,7 @@ class NewArrivalsView(APIView):
     def get(self, request):
         user = request.user
         total = Product.objects.count() - 3
-        new_arrivals = Product.objects.filter(school=user.school).order_by('-uploaded_at')[:20]
+        new_arrivals = Product.objects.all().order_by('-uploaded_at')[:20]
         serializer = ProductSerializer(new_arrivals, many=True)
         return Response(serializer.data)
     
@@ -780,7 +801,7 @@ class ProfileDetails(APIView):
         serializer = UserSerializer(user)
         return Response(serializer.data)
     
-    
+    @transaction.atomic
     def put(self, request):
         user = request.user
         data = request.data.copy()
@@ -831,7 +852,7 @@ class SearchProduct(APIView):
     def get(self, request):
         search_query = request.GET.get('search')
         if search_query is not None:
-            product = Product.objects.filter(product_name__icontains=search_query).order_by('-uploaded_at')  | Product.objects.filter(vendor_name__icontains=search_query).order_by('-uploaded_at')  and Product.objects.filter(school=request.user.school).order_by('-uploaded_at') 
+            product = Product.objects.filter(product_name__icontains=search_query).order_by(Lower('product_name'))  or Product.objects.filter(vendor_name__icontains=search_query).order_by(Lower('product_name')) 
             serializer = ProductSerializer(product, many=True)
             return Response(serializer.data)
         else:
@@ -1383,6 +1404,10 @@ class VerifyDepositView(APIView):
                     wallet = Wallet.objects.get(user=request.user)
                     wallet.funds += amount
                     wallet.save()
+
+                    transaction_history = TransactionHistory.objects.create(user=request.user, transaction_id=str(uuid.uuid4().int)[:20], transaction='Credit', transaction_type='Deposit', transaction_amount=amount,
+                                                                                    sender='', recipient='Wallet')
+                    transaction_history.save()
 
                     
 
