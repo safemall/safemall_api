@@ -185,6 +185,7 @@ class OrderDetail(models.Model):
 
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    product_id = models.IntegerField(default=0)
     order_id = models.UUIDField(default='')
     first_name = models.CharField(max_length=300)
     last_name = models.CharField(max_length=300)
@@ -218,17 +219,25 @@ class ProductReview(models.Model):
     )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_review')
+    order = models.ForeignKey(OrderDetail, on_delete=models.CASCADE, default=1, related_name='order')
+    order_pk = models.IntegerField(default=0)
+    product_image = models.ImageField(upload_to='image', default='', null=True, blank=True)
+    product_name = models.CharField(max_length=200, default='')
+    vendor_name = models.CharField(max_length=500, default='')
     vendor_id = models.CharField(max_length=200, default='')
     first_name = models.CharField(max_length=200, default='')
     last_name = models.CharField(max_length=200, default='')
     rating = models.IntegerField(choices=RATING, default=1)
     review = models.TextField(max_length=1000)
     image = models.ImageField(upload_to='image', null=True, blank=True, default='')
+    is_deleted = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.first_name
     
+  
 
 class Wallet(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='user_wallet')

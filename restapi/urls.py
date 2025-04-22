@@ -102,8 +102,20 @@ urlpatterns = [
     path('search/', views.SearchProduct.as_view(), name='search_product'),
 
 
-    #API endpoint for getting and posting product reviews
-    path('productreview/<int:product_id>/', views.ProductReviewView.as_view(), name='product_review'),
+    #API endpoint for getting product reviews
+    path('getproductreview/<int:product_id>/', views.ProductReviewView.as_view(), name='product_review'),
+
+
+    #API endpoint for posting product reviews
+    path('postproductreview/<int:product_id>/<uuid:order_id>/', views.PostProductReviewView.as_view(), name='post_product_review'),
+
+
+   #API endpoint for updating product reviews
+    path('updateproductreview/<int:order_pk>/<int:product_id>/', views.UpdateProductReviewView.as_view(), name='update_product_review'),
+
+
+    #API endpoint for posting product reviews
+    path('userproductreview/', views.UserReviewsView.as_view(), name='user_product_review'),
 
 
     #API endpoint for getting orders made to a vendor

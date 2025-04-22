@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from django.conf import settings
 from rest_framework.views import APIView
 import firebase_admin
-from firebase_admin import credentials, messaging
+from firebase_admin import credentials, messaging, exceptions
 from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.http import Http404
@@ -187,9 +187,15 @@ class VendorStoreApi(APIView):
             serializer.save()
             if request.data['business_name']:
                 products = Product.objects.filter(vendor_identity = user.vendor_id)
-                for product in products:
-                    product.vendor_name = request.data['business_name']
-                    product.save()
+                if products:
+                    for product in products:
+                        product.vendor_name = request.data['business_name']
+                        product.save()
+                reviews = ProductReview.objects.filter(vendor_id=user.vendor_id)
+                if reviews:
+                    for items in reviews:
+                        items.vendor_name = request.data['business_name']
+                        items.save()
             if request.data['profile_image']:
                 products = Product.objects.filter(vendor_identity = user.vendor_id)
                 for product in products:
@@ -437,7 +443,7 @@ class OrderProductView(APIView):
                         transfer = Transaction(vendor_wallet, customer_wallet, percentage_sum)
                         if transfer.pay():
                             
-                            order = OrderDetail.objects.create(user = request.user, order_id = uuid.uuid4(), order_otp_token = secrets.token_hex(4), first_name=request.data['first_name'], last_name=request.data['last_name'], address=request.data['address'], phone_number=request.data['phone_number'], email_address=request.data['email_address'], 
+                            order = OrderDetail.objects.create(user = request.user, product_id = product.id, order_id = uuid.uuid4(), order_otp_token = secrets.token_hex(4), first_name=request.data['first_name'], last_name=request.data['last_name'], address=request.data['address'], phone_number=request.data['phone_number'], email_address=request.data['email_address'], 
                                                                 product_name=name, product_image = order_image.image, product_price=price, vendor_name=vendor_name, vendor_id =vendor_id, product_quantity=quantity, total_price = total_sum)      
                             order.save()
                             pending_payment = Pending.objects.create(product_id=product_id, quantity=quantity, order_id=order.order_id, account_number=customer_wallet.account_number, otp_token=make_password(order.order_otp_token), amount=total_sum)
@@ -458,20 +464,21 @@ class OrderProductView(APIView):
                             vendor_token = vendor_user_model.fcm_token
 
                             if vendor_token:
-                                message = messaging.Message(
+                               
+                               message = messaging.Message(
                                     notification=messaging.Notification(
                                         title=f'{vendor_user_model.first_name}, you are making sales!',
                                         body=f'You have a pending order from {request.user.first_name} {request.user.last_name}'
                                     ),
                                     token=vendor_token,
 
-                                )
-                                try:
+                                 )
+                               try:
                                     messaging.send(message)
-                                except messaging.FirebaseError as e:
+                               except exceptions.FirebaseError as e:
                                     if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
                                         vendor_token = ''
-                                        vendor_user_model.save()
+                                        vendor_user_model.save() 
     
                             
                             return Response(order_serializer.data, status=status.HTTP_201_CREATED)
@@ -642,7 +649,7 @@ class TranferView(APIView):
                                 )
                                 try:
                                     messaging.send(message)
-                                except messaging.FirebaseError as e:
+                                except exceptions.FirebaseError as e:
                                     if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
                                         recipient_token = ''
                                         User.save()
@@ -867,7 +874,8 @@ class ProductReviewView(APIView):
     #@method_decorator(cache_page(60*30, key_prefix='product_reviews'))
     def get(self, request, product_id):
         product = get_object_or_404(Product, id=product_id)
-        review = ProductReview.objects.filter(product=product).order_by('-created_at')
+        product_reviews = ProductReview.objects.filter(is_deleted = False)
+        review = product_reviews.filter(product=product).order_by('-created_at')
         value = ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg']
         rating_avg = 0.0
     
@@ -884,25 +892,96 @@ class ProductReviewView(APIView):
         else:
             return Response({'message': []})
         
-        
-            
 
-    def post(self, request, product_id):
+
+        
+class PostProductReviewView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, product_id, order_id):
         user = request.user
         image = user.profile_image
         first_name = user.first_name
         last_name = user.last_name
+        order = OrderDetail.objects.filter(order_id = order_id).first()
         product = get_object_or_404(Product, id=product_id)
+        product_image = ProductImage.objects.filter(product=product).first()
         vendor_id = product.vendor_identity
-        review = ProductReview.objects.create(user=user, product=product, vendor_id=vendor_id, first_name=first_name, last_name=last_name, image=image, rating=request.data['rating'], review=request.data['review'])
-        review.save()
+        if not ProductReview.objects.filter(order_pk=order.id).exists():
+            review = ProductReview.objects.create(user=user, order=order, order_pk=order.id, product=product, product_name=product.product_name, product_image=product_image.image, vendor_name=product.vendor_name, vendor_id=vendor_id, first_name=first_name, last_name=last_name, image=image, rating=request.data['rating'], review=request.data['review'])
+            review.save()
 
-        value = round(ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg'], 1)
-        product.average_rating = value
-        product.save()
-        serializer = ProductReviewSerializer(review)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            value = round(ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg'], 1)
+            product.average_rating = value
+            product.save()
+            serializer = ProductReviewSerializer(review)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'message': 'You have already added a review for this order'})
     
+
+class UpdateProductReviewView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, order_pk, product_id):
+        rating = request.data.get('rating', 0)
+        review = request.data.get('review', 0)
+        user_product_review = ProductReview.objects.filter(order_pk=order_pk).first()
+        product = get_object_or_404(Product, id=product_id)
+        if rating and review != 0:
+            user_product_review.rating = rating
+            user_product_review.review = review
+            user_product_review.edited_at = timezone.now()
+            user_product_review.save()
+            value = round(ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg'], 1)
+            product.average_rating = value
+            product.save()
+            return Response({'message': 'product review updated'})
+        elif rating != 0 and review == 0:
+            user_product_review.rating = rating
+            user_product_review.edited_at = timezone.now()
+            user_product_review.save()
+            value = round(ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg'], 1)
+            product.average_rating = value
+            product.save()
+            return Response({'message': 'product review updated'})
+        elif review != 0 and rating == 0:
+            user_product_review.review = review
+            user_product_review.edited_at = timezone.now()
+            user_product_review.save()
+            return Response({'message': 'product review updated'})
+        else:
+            return Response({'message': 'rating or review required'})
+        
+
+    def delete(self, request, order_pk):
+            user_product_review = ProductReview.objects.filter(order_pk=order_pk).first()
+
+            user_product_review.is_deleted = True
+            user_product_review.save()
+            return Response({'message': 'product review deleted'})
+        
+
+
+
+    
+class UserReviewsView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_reviews = ProductReview.objects.filter(is_deleted=False)
+        personal_user_reviews =  user_reviews.filter(user=request.user).order_by('-created_at')  
+        if personal_user_reviews:
+            serializer = ProductReviewSerializer(user_reviews, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({'message': []})    
+
+
+
 
 class VendorOrderView(APIView):
     authentication_classes = [TokenAuthentication]

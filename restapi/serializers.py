@@ -109,7 +109,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = OrderDetail
-        fields = ['order_id', 'first_name', 'last_name', 'address', 'email_address', 'phone_number', 'product_name', 'product_price', 'product_image', 'vendor_name', 'product_quantity', 'total_price', 'order_otp_token', 'order_status', 'created_at']
+        fields = ['id', 'order_id', 'first_name', 'last_name', 'address', 'email_address', 'phone_number', 'product_name', 'product_price', 'product_image', 'vendor_name', 'product_quantity', 'total_price', 'order_otp_token', 'order_status', 'created_at']
 
         vendor_name = serializers.CharField(required=False)   
         product_name = serializers.CharField(required=False)
@@ -133,8 +133,8 @@ class ProductReviewSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ProductReview
-        fields = ['id', 'user', 'product', 'first_name', 'last_name', 'rating', 'review', 'image', 'created_at']
-        read_only_fields = ['user', 'created_at', 'product', 'first_name', 'last_name', 'image']
+        fields = ['id', 'user', 'product', 'first_name', 'last_name', 'rating', 'review', 'image', 'created_at', 'edited_at']
+        read_only_fields = ['user', 'created_at', 'product', 'first_name', 'last_name', 'image', 'edited_at']
 
 
 class WalletSerializer(serializers.ModelSerializer):
