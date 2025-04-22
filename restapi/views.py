@@ -956,7 +956,7 @@ class UpdateProductReviewView(APIView):
             return Response({'message': 'rating or review required'})
         
 
-    def delete(self, request, order_pk):
+    def delete(self, request, order_pk, product_id):
             user_product_review = ProductReview.objects.filter(order_pk=order_pk).first()
 
             user_product_review.is_deleted = True
