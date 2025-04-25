@@ -180,7 +180,7 @@ urlpatterns = [
 
     path('deposit/', views.DepositMoneyView.as_view(), name='deposit_money'),
 
-    path('verifydeposit/', views.VerifyDepositView.as_view(), name='verify_dposit'),
+    path('verifydeposit/', views.VerifyDepositView.as_view(), name='verify_deposit'),
 
     path('withdrawal/', views.WithdrawFundsView.as_view(), name='withdrawal'),
 
