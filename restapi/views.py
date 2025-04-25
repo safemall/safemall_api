@@ -228,7 +228,7 @@ class SetTransactionPin(APIView):
                 user.transaction_pin = make_password(pin)
                 user.save()
                 data = {
-            'firebase_token': request.user.firebase_token,
+            
             'message': 'pin set successfully'
         }
                 return Response(data)
@@ -246,7 +246,7 @@ class SubscriptionView(APIView):
         vendor = get_object_or_404(VendorProfile, user=request.user)
         vendor.subscripe_for_two_hours()
         data = {
-            'firebase_token': request.user.firebase_token,
+            
             'message': 'you are subscribed for 2 hours'
         }
         return Response(data)
@@ -414,7 +414,7 @@ class ProductDetailsView(APIView):
         if vendor.vendor_id == product.vendor_identity:
             product.delete()
             data = {
-                'firebase_token': request.user.firebase_token
+                'message': 'product deleted'
             }
             return Response(data, status=status.HTTP_204_NO_CONTENT)
         else:
@@ -428,7 +428,7 @@ class ProductImageView(APIView):
         image = product.images.get(id=image_id)
         image.delete()
         data = {
-                'firebase_token': request.user.firebase_token
+                'message': 'image deleted'
             }
         return Response(data, status= status.HTTP_204_NO_CONTENT)
     
@@ -608,14 +608,12 @@ class WalletView(APIView):
                     items.delete()
             wallet_serializer = WalletSerializer(wallet)
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': wallet_serializer.data
             }
             return Response(data)
         else:
             serializer = WalletSerializer(wallet)
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': serializer.data
             }
             return Response(data)
@@ -632,13 +630,11 @@ class TransactionHistoryView(APIView):
         if transaction_history:
             serializer = TransactionSerializer(transaction_history, many=True)
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': serializer.data
             }
             return Response(data)
         else:
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': []
             }
             return Response(data)
@@ -661,7 +657,6 @@ class TranferView(APIView):
                 cache_key = f'user_{request.user.id}_cache_key'
                 cache.set(cache_key,account.account_number,3600)
                 data = {
-                'firebase_token': request.user.firebase_token,
                 'data': serializer.data
             }
                 return Response(data)
@@ -696,7 +691,6 @@ class TranferView(APIView):
                             serializer = TransactionSerializer(sender_transaction_history)
                             cache.delete(cache_key)
                             data = {
-                                'firebase_token': request.user.firebase_token,
                                 'message': 'transaction done successfully',
                                 'receipt': serializer.data
                             }
@@ -980,13 +974,11 @@ class SearchProduct(APIView):
             product = Product.objects.filter(product_name__icontains=search_query).order_by(Lower('product_name'))  or Product.objects.filter(vendor_name__icontains=search_query).order_by(Lower('product_name')) 
             serializer = ProductSerializer(product, many=True)
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': serializer.data
             }
             return Response(data)
         else:
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': []
             }
             return Response(data)
@@ -1018,7 +1010,6 @@ class ProductReviewView(APIView):
             return Response(data)
         else:
             data = {
-                'firebase_token': request.user.firebase_token,
                 'message': []
             }
             return Response(data)
@@ -1048,13 +1039,11 @@ class PostProductReviewView(APIView):
             product.save()
             serializer = ProductReviewSerializer(review)
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': serializer.data
             }
             return Response(data, status=status.HTTP_201_CREATED)
         else:
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': 'You have already added a review for this order'
             }
             return Response(data)
@@ -1078,7 +1067,6 @@ class UpdateProductReviewView(APIView):
             product.average_rating = value
             product.save()
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': 'product review updated'
             }
             return Response(data)
@@ -1090,7 +1078,6 @@ class UpdateProductReviewView(APIView):
             product.average_rating = value
             product.save()
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': 'product review updated'
             }
             return Response(data)
@@ -1099,13 +1086,11 @@ class UpdateProductReviewView(APIView):
             user_product_review.edited_at = timezone.now()
             user_product_review.save()
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': 'product review updated'
             }
             return Response(data)
         else:
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': 'rating or review required'
             }
             return Response(data)
@@ -1117,7 +1102,6 @@ class UpdateProductReviewView(APIView):
             user_product_review.is_deleted = True
             user_product_review.save()
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': 'product review deleted'
             }
             return Response(data)
@@ -1136,13 +1120,11 @@ class UserReviewsView(APIView):
         if personal_user_reviews:
             serializer = ProductReviewSerializer(user_reviews, many=True)
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': serializer.data
             }
             return Response(data)
         else:
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': []
                 }
             return Response(data)    
@@ -1165,19 +1147,16 @@ class VendorOrderView(APIView):
             if vendor_order:
                 serializer = OrderDetailForVendorsSerializer(vendor_order, many=True)
                 data = {
-                'firebase_token': request.user.firebase_token,
                 'data': serializer.data
                         }
                 return Response(data)
             else:
                 data = {
-                'firebase_token': request.user.firebase_token,
                 'data': 'no order yet'
                         }
                 return Response(data)
         else:
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': 'subscription is out of date'
                         }
             return Response(data)
@@ -1194,13 +1173,11 @@ class BuyerOrderView(APIView):
         if order:
             serializer = OrderDetailSerializer(order, many=True)
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': serializer.data
                         }
             return Response(data)
         else:
             data = {
-                'firebase_token': request.user.firebase_token,
                 'data': []
                         }
             return Response(data)
@@ -1226,15 +1203,13 @@ class InventoryView(APIView):
                     'data':serializer.data}
                 return Response(data)
             else:
-                data = {
-                            'firebase_token': request.user.firebase_token,
+                data = { 'firebase_token': request.user.firebase_token,
                             'message': 'no product(s) yet',
                                 'data':[]
                                 }
                 return Response(data)
         else:
             data = {
-                        'firebase_token': request.user.firebase_token,
                         'message': 'subscription is out of date',
                              'data':[]
                             }
@@ -1281,13 +1256,11 @@ class PasswordResetView(APIView):
             send_mail(subject=subject, recipient_list=recipient, message='', from_email=sender,html_message=html_content)
             
             data = {
-                'firebase_token': request.user.firebase_token,
                 'message': f'a password recovery code was sent to {user.email}'
             }
             return Response(data)
         except Exception:
             data = {
-                'firebase_token': request.user.firebase_token,
                 'message': 'error sending email'
             }
             return Response(data)
@@ -1330,11 +1303,11 @@ class ResendOtpCodeView(APIView):
     """
 
                 send_mail(subject=subject, recipient_list=recipient, message='', from_email=sender,html_message=html_content)
-                data = { 'firebase_token': request.user.firebase_token,
+                data = {
                     'message': f'a password reset code was sent to {user.email}' }
                 return Response(data)
             except Exception:
-                data = { 'firebase_token': request.user.firebase_token,
+                data = {
                     'message': 'error sending email'}
                 return Response(data)
 
@@ -1467,15 +1440,15 @@ class OtpCodeVerificationView(APIView):
         user = request.user
         otp_token = OtpTokenGenerator.objects.filter(user=user).last()
         if check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at > timezone.now():
-            data = { 'firebase_token': request.user.firebase_token,
+            data = { 
                 'message': 'otp verified'}
             return Response(data)
         elif check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at < timezone.now():
-            data = {'firebase_token': request.user.firebase_token,
+            data = {
                 'message': 'expired otp token'}
             return Response(data)
         else:
-            data = {'firebase_token': request.user.firebase_token,
+            data = {
                 'message': 'invalid otp token'}
             return Response(data)
         
@@ -1486,7 +1459,7 @@ class OtpCodeVerificationView(APIView):
         user.password = password
         user.set_password(password)
         user.save()
-        data = { 'firebase_token': request.user.firebase_token,
+        data = {
             'message': 'password resetted successfully'}
         return Response(data)
     
@@ -1529,11 +1502,11 @@ class ResetTransactionPinView(APIView):
         """
 
             send_mail(subject=subject, recipient_list=recipient, message='', from_email=sender, html_message=html_body, fail_silently=False)
-            data = { 'firebase_token': request.user.firebase_token,
+            data = { 
                 'message': f'an otp code was sent to {user.email}'}
             return Response(data)
         except Exception:
-            data = { 'firebase_token': request.user.firebase_token,
+            data = {
                 'message': 'error sending email'}
             return Response(data)
         
@@ -1548,15 +1521,15 @@ class VerifyTransactionOtp(APIView):
         otp = request.data['otp_token']
         otp_token = TransactionOtpTokenGenerator.objects.filter(user=user).last()
         if check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at > timezone.now():
-            data = {'firebase_token': request.user.firebase_token,
+            data = {
                 'message': 'otp verified'}
             return Response(data)
         elif check_password(otp, otp_token.otp_token) and otp_token.otp_expires_at < timezone.now():
-            data = { 'firebase_token': request.user.firebase_token,
+            data = {
                 'message': 'expired otp token'}
             return Response(data)
         else:
-            data = { 'firebase_token': request.user.firebase_token,
+            data = {
                 'message': 'invalid otp token'}
             return Response(data)
         
@@ -1566,7 +1539,7 @@ class VerifyTransactionOtp(APIView):
         user = request.user
         user.transaction_pin = make_password(pin)
         user.save()
-        data = { 'firebase_token': request.user.firebase_token,
+        data = {
             'message': 'pin resetted successfully'}
         return Response(data)
     
@@ -1580,11 +1553,11 @@ class CheckPasswordView(APIView):
         user = request.user
         password = request.data['password']
         if check_password(password, user.password):
-            data = { 'firebase_token': request.user.firebase_token,
+            data = { 
                 'message': 'valid password'}
             return Response(data)
         else:
-            data = { 'firebase_token': request.user.firebase_token,
+            data = {
                 'message': 'invalid password'}
             return Response(data)
 
@@ -1606,15 +1579,15 @@ class ResetEmailView(APIView):
                 if vendor:
                     vendor.vendor_email = email
                     vendor.save()
-                data = { 'firebase_token': request.user.firebase_token,
+                data = { 
                     'message': 'email changed successfully'}
                 return Response(data)
             else:
-                data = { 'firebase_token': request.user.firebase_token,
+                data = { 
                     'message': 'email already exists'}
                 return Response(data)
         else:
-            data = { 'firebase_token': request.user.firebase_token,
+            data = {
                 'message': 'input an email address'}
             return Response(data)
         
@@ -1653,11 +1626,11 @@ class EmailVerificationView(APIView):
                         </html>
             """
             send_mail(from_email=sender, subject=subject, recipient_list=recipient, message='', html_message=html_body, fail_silently=False)
-            data = { 'firebase_token': request.user.firebase_token,
+            data = { 
                 'message': f'an email verification code was sent to {user.email}'}
             return Response(data)
         except Exception:
-            data = {'firebase_token': request.user.firebase_token,
+            data = {
                 'message': 'error sending email'}
             return Response(data)
         
@@ -1673,15 +1646,15 @@ class EmailOtpVerificationView(APIView):
         if check_password(otp_code, otp_token.otp_token) and otp_token.otp_expires_at > timezone.now():
             user.email_verified = True
             user.save()
-            data = { 'firebase_token': request.user.firebase_token,
+            data = { 
                 'message': 'email verified'}
             return Response(data)
         elif check_password(otp_code, otp_token.otp_token) and otp_token.otp_expires_at < timezone.now():
-            data = { 'firebase_token': request.user.firebase_token,
+            data = { 
                 'message': 'expired otp token'}
             return Response(data)
         else:
-            data = { 'firebase_token': request.user.firebase_token,
+            data = { 
                 'message': 'invalid otp token'}
             return Response(data)
         
@@ -1702,20 +1675,20 @@ class DepositMoneyView(APIView):
             if paystack_response.get('status'):
 
                 data = {
-                    'firebase_token': request.user.firebase_token,
+                    
                     'message': 'transaction initialized',
                     'data': paystack_response['data']
                 }
                 return Response(data, status=status.HTTP_200_OK)
             else:
                 data = {
-                    'firebase_token': request.user.firebase_token,
+                    
                     'data': paystack_response
                 }
                 return Response(data, status=status.HTTP_400_BAD_REQUEST)
         except Exception:
             data = {
-                'firebase_token': request.user.firebase_token,
+                
                 'message': 'Deposit error'}
             return Response(data)
         
@@ -1748,17 +1721,17 @@ class VerifyDepositView(APIView):
                     
 
                     data = {
-                        'firebase_token': request.user.firebase_token,
+                        
                         'message': 'deposit successful',
                         'new_balance': wallet.funds
                     }
                     return Response(data, status=status.HTTP_200_OK)
                 else:
-                    data = { 'firebase_token': request.user.firebase_token,
+                    data = { 
                         'error': 'transaction failed'}
                     return Response(data, status=status.HTTP_400_BAD_REQUEST)
         except Exception:
-            data = { 'firebase_token': request.user.firebase_token,
+            data = { 
                 'message': 'Deposit error, try refreshing'}
             return Response(data)
         
@@ -1780,13 +1753,13 @@ class FindRecipientView(APIView):
                 return Response({'account_name': account_name})
             else:
                 data = {
-                    'firebase_token': request.user.firebase_token,
+                    
                     'message': 'error resolving account',
                     'data': paystack_response.json()
                 }
                 return Response(data)
         except Exception as e:
-            data = { 'firebase_token': request.user.firebase_token,
+            data = { 
                 'message': 'error getting account details'}
             return Response(data)
 
