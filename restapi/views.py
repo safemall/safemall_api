@@ -166,12 +166,18 @@ class VendorStoreApi(APIView):
 
     def get(self, request):
         user = get_object_or_404(VendorProfile, user=request.user)
-        serializer = VendorSerializer(user)
-        data = {
-            'firebase_token': request.user.firebase_user_id,
-            'data': serializer.data
-        }
-        return Response(data)
+        if user.business_name == '':
+            data = {
+                'message': "you haven't set up your store"
+            }
+            return Response(data)
+        else:
+            serializer = VendorSerializer(user)
+            data = {
+                'firebase_token': request.user.firebase_user_id,
+                'data': serializer.data
+            }
+            return Response(data)
     
     def post(self, request):
         serializer = VendorSerializer(data=request.data)
