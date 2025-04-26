@@ -112,6 +112,7 @@ class LoginApi(APIView):
         password = request.data['password']
         fcm_token = request.data['fcm_token']
         firebase_token = request.data['firebase_token']
+        firebase_user_id = request.data['firebase_user_id']
         user = authenticate(email=email, password=password)
         User = get_user_model()
 
@@ -123,6 +124,7 @@ class LoginApi(APIView):
                 auth_user = User.objects.get(email=email)
                 auth_user.fcm_token = fcm_token
                 auth_user.firebase_token = firebase_token
+                auth_user.firebase_user_id = firebase_user_id
                 auth_user.save()
                 user_serializer = UserSerializer(auth_user)
                 token, created = Token.objects.get_or_create(user=user)
@@ -140,6 +142,7 @@ class LoginApi(APIView):
                 auth_user = User.objects.get(email=email)
                 auth_user.fcm_token = fcm_token
                 auth_user.firebase_token = firebase_token
+                auth_user.firebase_user_id = firebase_user_id
                 auth_user.save()
                 user_serializer = UserSerializer(auth_user)
                 token, created = Token.objects.get_or_create(user=user)
@@ -162,7 +165,11 @@ class VendorStoreApi(APIView):
     def get(self, request):
         user = get_object_or_404(VendorProfile, user=request.user)
         serializer = VendorSerializer(user)
-        return Response(serializer.data)
+        data = {
+            'firebase_token': request.user.firebase_user_id,
+            'data': serializer.data
+        }
+        return Response(data)
     
     def post(self, request):
         serializer = VendorSerializer(data=request.data)
@@ -178,7 +185,7 @@ class VendorStoreApi(APIView):
         vendor.save()
         Vendorstore = VendorSerializer(vendor)
         data = {
-            'firebase_token': request.user.firebase_token,
+            'firebase_token': request.user.firebase_user_id,
             'vendor': Vendorstore.data
         }
         return Response(data, status=status.HTTP_201_CREATED)
@@ -206,7 +213,7 @@ class VendorStoreApi(APIView):
                     product.vendor_image = request.data['profile_image']
                     product.save()
             data = {
-            'firebase_token': request.user.firebase_token,
+            'firebase_token': request.user.firebase_user_id,
             'vendor': serializer.data
         }
             return Response(data, status=status.HTTP_200_OK)
@@ -290,7 +297,7 @@ class ProductUploadView(APIView):
                                 
                             product_serializer = ProductSerializer(product)
                             data = {
-                                'firebase_token': request.user.firebase_token,
+                                'firebase_token': request.user.firebase_user_id,
                                 'data': product_serializer.data
                                 }
                             return Response(data , status=status.HTTP_201_CREATED)
@@ -318,7 +325,7 @@ class ProductDetailsView(APIView):
         product = self.get_object(product_id)
         serializer = ProductSerializer(product)
         data = {
-            'firebase_token': request.user.firebase_token,
+            'firebase_token': request.user.firebase_user_id,
             'data': serializer.data
         }
         return Response(data)
@@ -338,7 +345,7 @@ class ProductDetailsView(APIView):
                     cache_key = f'user_{request.user.id}_order_for_{product_id}_cache_key'
                     cache.set(cache_key, quantity, 3600)
                     data = {
-                        'firebase_token': request.user.firebase_token,
+                        'firebase_token': request.user.firebase_user_id,
                         'product': serializer.data,
                         'quantity': quantity
                     }
@@ -353,7 +360,7 @@ class ProductDetailsView(APIView):
                 cache_key = f'user_{request.user.id}_order_for_{product_id}_cache_key'
                 cache.set(cache_key, quantity, 3600)
                 data = {
-                    'firebase_token': request.user.firebase_token,
+                    'firebase_token': request.user.firebase_user_id,
                     'product': serializer.data,
                     'quantity': quantity
                 }
@@ -392,10 +399,11 @@ class ProductDetailsView(APIView):
                             existing_image.image = updated_image
                             existing_image.save()
                         else:
-                            for image in new_image:
-                                ProductImage.objects.create(product=product, image=image)
+                            if new_image:
+                                for image in new_image:
+                                    ProductImage.objects.create(product=product, image=image)
                         data = {
-                            'firebase_token': request.user.firebase_token,
+                            'firebase_token': request.user.firebase_user_id,
                             'message': 'product updated',
                             'data': serializer.data
                         }
@@ -444,7 +452,7 @@ class OrderProductView(APIView):
         quantity = cache.get(cache_key)
         total_price = int(product.discounted_price) * int(quantity)
         data = {
-            'firebase_token': request.user.firebase_token,
+            'firebase_token': request.user.firebase_user_id,
             'product': serializer.data,
             'total_price': total_price,
             'quantity': quantity
@@ -519,7 +527,7 @@ class OrderProductView(APIView):
                                         vendor_user_model.save() 
     
                             data = {
-                                'firebase_token': request.user.firebase_token,
+                                'firebase_token': request.user.firebase_user_id,
                                 'data': order_serializer.data
                             }
                             return Response(data, status=status.HTTP_201_CREATED)
@@ -566,7 +574,7 @@ class VendorPayment(APIView):
                         order.save()
                         pending_funds.delete()
                         data = {
-                            'firebase_token': request.user.firebase_token,
+                            'firebase_token': request.user.firebase_user_id,
                             'message': 'your account has been credited successfully'
                         }
                         return Response(data)
@@ -737,7 +745,7 @@ class ClothesPageView(APIView):
         clothpage = Product.objects.filter(product_category='clothes').order_by('-uploaded_at')
         clothserializer = ProductSerializer(clothpage, many=True)
         data = {
-                'firebase_token': request.user.firebase_token,
+                'firebase_token': request.user.firebase_user_id,
                 'data': clothserializer.data
             }
         return Response(data)
@@ -754,7 +762,7 @@ class FoodPageView(APIView):
         foodpage = Product.objects.filter(product_category='food').order_by('-uploaded_at')
         foodserializer = ProductSerializer(foodpage, many=True)
         data = {
-                'firebase_token': request.user.firebase_token,
+                'firebase_token': request.user.firebase_user_id,
                 'data': foodserializer.data
             }
         return Response(data)
@@ -770,7 +778,7 @@ class FootwearsPageView(APIView):
         footwearpage = Product.objects.filter(product_category='footwears').order_by('-uploaded_at')
         footwearserializer = ProductSerializer(footwearpage, many=True)
         data = {
-                'firebase_token': request.user.firebase_token,
+                'firebase_token': request.user.firebase_user_id,
                 'data': footwearserializer.data
             }
         return Response(data)
@@ -786,7 +794,7 @@ class AccessoriesPageView(APIView):
         accessoriespage = Product.objects.filter(product_category='accessories').order_by('-uploaded_at')
         accessoriesserializer = ProductSerializer(accessoriespage, many=True)
         data = {
-                'firebase_token': request.user.firebase_token,
+                'firebase_token': request.user.firebase_user_id,
                 'data': accessoriesserializer.data
             }
         return Response(data)
@@ -802,7 +810,7 @@ class BeautyPageView(APIView):
         beautypage = Product.objects.filter(product_category='beauty').order_by('-uploaded_at')
         beautyserializer = ProductSerializer(beautypage, many=True)
         data = {
-                'firebase_token': request.user.firebase_token,
+                'firebase_token': request.user.firebase_user_id,
                 'data': beautyserializer.data
             }
         return Response(data)
@@ -818,7 +826,7 @@ class HouseholdPageView(APIView):
         householdpage = Product.objects.filter(product_category='household').order_by('-uploaded_at')
         householdserializer = ProductSerializer(householdpage, many=True)
         data = {
-                'firebase_token': request.user.firebase_token,
+                'firebase_token': request.user.firebase_user_id,
                 'data': householdserializer.data
             }
         return Response(data)
@@ -835,7 +843,7 @@ class NewArrivalsView(APIView):
         new_arrivals = Product.objects.all().order_by('-uploaded_at')[:20]
         serializer = ProductSerializer(new_arrivals, many=True)
         data = {
-                'firebase_token': request.user.firebase_token,
+                'firebase_token': request.user.firebase_user_id,
                 'data': serializer.data
             }
         return Response(data)
@@ -853,7 +861,7 @@ class ExploreView(APIView):
         random_data = VendorProfile.objects.filter(id__in=random_ids)
         vendor_serializer = VendorSerializer(random_data, many=True)
         data = {
-            'firebase_token': request.user.firebase_token,
+            'firebase_token': request.user.firebase_user_id,
             'message': 'product fetched successfully',
             'data': vendor_serializer.data
         }
@@ -872,7 +880,7 @@ class FeaturedProductView(APIView):
         random_data = Product.objects.filter(id__in=random_ids)
         product_serializer = ProductSerializer(random_data, many=True)
         data = {
-            'firebase_token': request.user.firebase_token,
+            'firebase_token': request.user.firebase_user_id,
             'message': 'Products fetched successfully',
             'data':product_serializer.data
         }
@@ -894,7 +902,7 @@ class VendorPageView(APIView):
         vendor_serializer = VendorSerializer(vendor)
         product_serializer = ProductSerializer(product, many=True)
         data = {
-            'firebase_token': request.user.firebase_token,
+            'firebase_token': request.user.firebase_user_id,
             'vendor_data': vendor_serializer.data,
             'vendor_rating': vendor_rating,
             'product_data': product_serializer.data            
@@ -911,7 +919,7 @@ class ProfileDetails(APIView):
         user = request.user
         serializer = UserSerializer(user)
         data = {
-            'firebase_token': request.user.firebase_token,
+            'firebase_token': request.user.firebase_user_id,
             'data': serializer.data 
         }
         return Response(data)
@@ -956,7 +964,7 @@ class ProfileDetails(APIView):
             wallet.last_name = user.last_name
             wallet.save()
             data = {
-                'firebase_token': request.user.firebase_token,
+                'firebase_token': request.user.firebase_user_id,
                 'data': serializer.data
             }
             return Response(data, status=status.HTTP_200_OK)
@@ -1002,7 +1010,7 @@ class ProductReviewView(APIView):
             serializer = ProductReviewSerializer(review, many=True)
             total_number = review.count()
             data = {
-                'firebase_token': request.user.firebase_token,
+                'firebase_token': request.user.firebase_user_id,
                 'reviews': serializer.data,
                 'total': total_number,
                 'average rating': rating_avg
@@ -1198,12 +1206,12 @@ class InventoryView(APIView):
             if product:
                 serializer = ProductSerializer(product, many=True)
                 data = {
-                    'firebase_token': request.user.firebase_token,
+                    'firebase_token': request.user.firebase_user_id,
                     'message': 'Products fetched successfully',
                     'data':serializer.data}
                 return Response(data)
             else:
-                data = { 'firebase_token': request.user.firebase_token,
+                data = { 'firebase_token': request.user.firebase_user_id,
                             'message': 'no product(s) yet',
                                 'data':[]
                                 }

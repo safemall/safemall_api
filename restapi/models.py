@@ -17,6 +17,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=200, )
     last_name = models.CharField(max_length=200, )
     school = models.CharField(max_length=1000, choices=SCHOOLS, default='')
+    firebase_user_id = models.CharField(max_length=40, default='')
     firebase_token = models.TextField(max_length=1000, )
     email_verified = models.BooleanField(default=False)
     transaction_pin = models.CharField(max_length=255, default='')

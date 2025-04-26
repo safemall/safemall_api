@@ -21,11 +21,12 @@ class UserSerializer(serializers.ModelSerializer):
     firebase_token = serializers.CharField(required=False)
     transaction_pin = serializers.CharField(required=False)
     email_verified = serializers.BooleanField(required=False)
+    firebase_user_id = serializers.CharField(required=False)
 
     class Meta:
         user = get_user_model()
         model = user
-        fields = ['id','phone_number', 'firebase_token', 'profile_image', 'fcm_token', 'email', 'email_verified', 'school', 'transaction_pin', 'first_name', 'last_name', 'password']
+        fields = ['id','phone_number', 'firebase_token', 'firebase_user_id', 'profile_image', 'fcm_token', 'email', 'email_verified', 'school', 'transaction_pin', 'first_name', 'last_name', 'password']
     
     def to_internal_value(self, data):
         User = get_user_model()
