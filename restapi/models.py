@@ -91,6 +91,7 @@ class VendorProfile(models.Model):
     business_name = models.CharField(max_length=500, default='')
     business_description = models.TextField(max_length=1000, default='')
     profile_image = models.ImageField(upload_to='image')
+    firebase_user_id = models.CharField(max_length=40, default='')
     business_address = models.CharField(max_length=500)
     subscription_status = models.BooleanField(default=False)
     subscribed_at = models.DateTimeField(null=True, blank=True)

@@ -61,10 +61,11 @@ class VendorSerializer(serializers.ModelSerializer):
     business_name = serializers.CharField(required=False)
     vendor_email = serializers.EmailField(required=False)
     vendor_id = serializers.UUIDField(required=False)
+    firebase_user_id = serializers.CharField(required=False)
 
     class Meta:
         model = VendorProfile
-        fields = ['business_name', 'business_phone_number', 'vendor_id', 'vendor_email', 'business_description', 'business_address', 'account_number', 'profile_image']
+        fields = ['business_name', 'business_phone_number', 'vendor_id', 'firebase_user_id',  'vendor_email', 'business_description', 'business_address', 'account_number', 'profile_image']
         read_only_fields = ['account_number']
 
 
