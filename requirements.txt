@@ -8,3 +8,4 @@ python-dotenv
 PyreBase4
 firebase-admin
 channels==3.0.5
+daphne
