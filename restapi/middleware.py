@@ -1,13 +1,15 @@
 from channels.middleware import BaseMiddleware
 from channels.db import database_sync_to_async
-from django.contrib.auth.models import AnonymousUser
-from rest_framework.authtoken.models import Token
 from django.core.cache import cache
 from django.utils.timezone import now
 
 
+# Make sure this function is defined before it's used in the middleware class
 @database_sync_to_async
 def get_user_from_token(token_key):
+    from django.contrib.auth.models import AnonymousUser
+    from rest_framework.authtoken.models import Token
+    
     try:
         token = Token.objects.get(key=token_key)
         return token.user
@@ -18,17 +20,15 @@ def get_user_from_token(token_key):
 class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
 
     async def __call__(self, scope, receive, send):
-
         headers = dict(scope.get('headers', []))
 
         auth_header = headers.get(b'authorization', None)
         
         if auth_header:
             try:
-
                 auth_header = auth_header.decode()
                 if auth_header.startswith('Token'):
-                    token_key = auth_header.split('Token')[1]
+                    token_key = auth_header.split('Token')[1].strip()  # Added strip to remove any extra spaces
                     scope['user'] = await get_user_from_token(token_key)
                 else:
                     scope['user'] = AnonymousUser()
@@ -48,5 +48,5 @@ class ActiveUserCacheMiddleware:
         response = self.get_response(request)
 
         if request.user.is_authenticated:
-            cache.set(f'user_online_{request.user.user_chat_id}', now(), timeout=300)# 5 minutes
-            return response
+            cache.set(f'user_online_{request.user.user_chat_id}', now(), timeout=300)  # 5 minutes
+        return response
