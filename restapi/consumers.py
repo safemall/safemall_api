@@ -54,15 +54,23 @@ class ChatConsumer(WebsocketConsumer):
                 }
             )
             from firebase_admin import messaging, exceptions
+            from .models import VendorProfile
             
             if self.user == self.chatroom.user_1:
                 
                 recipient_user = self.chatroom.user_2
                 user_token = recipient_user.fcm_token
+                
+                if VendorProfile.objects.filter(user=recipient_user).exists():
+                    vendor = VendorProfile.objects.get(user=recipient_user)
+                    name = vendor.business_name
+                else:
+                    name = f'{recipient_user.first_name} {recipient_user.last_name}'
+                
                 image_url = self.get_image_url(recipient_user.profile_image)
                 message = messaging.Message(
                     notification=messaging.Notification(
-                        title='message',
+                        title=name,
                         body=content,
                         image= image_url
                     ),
@@ -80,10 +88,17 @@ class ChatConsumer(WebsocketConsumer):
                 
                 recipient_user = self.chatroom.user_1
                 user_token = recipient_user.fcm_token
+                
+                if VendorProfile.objects.filter(user=recipient_user).exists():
+                    vendor = VendorProfile.objects.get(user=recipient_user)
+                    name = vendor.business_name
+                else:
+                    name = f'{recipient_user.first_name} {recipient_user.last_name}'
+                
                 image_url = self.get_image_url(recipient_user.profile_image)
                 message = messaging.Message(
                     notification=messaging.Notification(
-                        title='message',
+                        title=name,
                         body=content,
                         image= image_url
                     ),
