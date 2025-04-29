@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-z=cqgca-z)!z_w0kevxp@ado#@2g-oja$9o@pyudvk!z21o*-!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['Safemall.pythonanywhere.com', '127.0.0.1']
+ALLOWED_HOSTS = ['*']
 
 CSRF_TRUSTED_ORIGINS = ['https://safemall.pythonanywhere.com']
 
