@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
 from .forms import CustomUserCreationForm, CustomUserChangeForm
-from .models import (CustomUser, BuyerProfile, TransactionPercentage, VendorProfile, OrderDetail, Product,
+from .models import (CustomUser, BuyerProfile, TransactionPercentage, VendorProfile, OrderDetail, Product, GroupName, UserMessage,
                       ProductImage, ProductReview,Wallet, Pending, TransactionHistory, OtpTokenGenerator, EmailOtpTokenGenerator, TransactionOtpTokenGenerator)
 
 # Register your models here.
@@ -91,4 +91,6 @@ admin.site.register(TransactionHistory,  TransactionHistoryDisplay)
 admin.site.register(TransactionPercentage, TransactionPercentageDisplay)
 admin.site.register(EmailOtpTokenGenerator)
 admin.site.register(OtpTokenGenerator)
+admin.site.register(GroupName)
+admin.site.register(UserMessage)
 admin.site.register(TransactionOtpTokenGenerator)

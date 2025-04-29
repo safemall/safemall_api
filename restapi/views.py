@@ -8,9 +8,9 @@ from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.http import Http404
 from django.db.models.functions import Lower
-from .serializers import UserSerializer, BuyerSerializer, VendorSerializer, ProductSerializer,OrderDetailForVendorsSerializer, OrderDetailSerializer, ProductImageSerializer, ProductReviewSerializer, WalletSerializer, TransactionSerializer, TransferWalletSerializer
+from .serializers import UserSerializer, UserMessageSerializer, BuyerSerializer, VendorSerializer, ProductSerializer,OrderDetailForVendorsSerializer, OrderDetailSerializer, ProductImageSerializer, ProductReviewSerializer, WalletSerializer, TransactionSerializer, TransferWalletSerializer
 from .models import (BuyerProfile, TransactionOtpTokenGenerator, VendorProfile, Product,TransactionPercentage , EmailOtpTokenGenerator,
-                     OrderDetail, ProductImage, ProductReview, OtpTokenGenerator, Pending, Wallet, TransactionHistory)
+                     OrderDetail, ProductImage, ProductReview, GroupName, OtpTokenGenerator, Pending, Wallet, TransactionHistory, UserMessage)
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
@@ -30,12 +30,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from django.views.decorators.vary import vary_on_headers
 import random 
+from .utils import is_user_online
 from decimal import Decimal
 import uuid
 from django.core.cache import cache
 from django.db.models import Avg
 from django.utils import timezone
-import requests
 # Create your views here.
 
 # cred = credentials.Certificate('path/to/firebase_credentials.json')
@@ -89,7 +89,7 @@ class VendorSignupApi(APIView):
                 vendor.save()
                 token = Token.objects.create(user=vendor)
                 token.save()
-                vendor_profile = VendorProfile.objects.create(user=vendor, firebase_user_id=request.data['firebase_user_id'], vendor_email=vendor.email, business_name='', profile_image='', account_number= '2' + str(uuid.uuid4().int)[:10-len('2')], business_address='', business_phone_number='')
+                vendor_profile = VendorProfile.objects.create(user=vendor, vendor_chat_id=vendor.user_chat_id, firebase_user_id=request.data['firebase_user_id'], vendor_email=vendor.email, business_name='', profile_image='', account_number= '2' + str(uuid.uuid4().int)[:10-len('2')], business_address='', business_phone_number='')
                 vendor_profile.save()
                 wallet = Wallet.objects.create(user=vendor, account_number=vendor_profile.account_number, first_name=vendor.first_name, last_name=vendor.last_name)
                 wallet.save()
@@ -265,6 +265,57 @@ class SubscriptionView(APIView):
             'message': 'you are subscribed for 2 hours'
         }
         return Response(data)
+
+
+class UserChatView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def sort_uuids(self, uuid1, uuid2):
+        #Ensure both are uuid objects
+        if not isinstance(uuid1, uuid.UUID):
+            uuid1 = uuid.UUID(str(uuid1))
+        if not isinstance(uuid2, uuid.UUID):
+            uuid2 = uuid.UUID(str(uuid2))
+        sorted_uuids = sorted([str(uuid1), str(uuid2)])
+        return f'privatechat-{sorted_uuids[0]}-{sorted_uuids[1]}'
+
+    def get(self, request):
+       user = request.user
+       second_user = request.data['user_chat_id']
+
+       user_uuid = user.user_chat_id
+       second_user_uuid = second_user
+       room_name = self.sort_uuids(user_uuid, second_user_uuid)
+       User = get_user_model()
+       user2 = get_object_or_404(User, user_chat_id=second_user)
+
+       if is_user_online(second_user):
+           is_active = True
+       else:
+           is_active = False
+
+       if not GroupName.objects.filter(group_name=room_name).exists():
+
+            room =  GroupName.objects.create(group_name=room_name, user_1=user, user_2=user2)
+            messages = UserMessage.objects.filter(group=room)
+            serializer = UserMessageSerializer(messages,many=True)
+            data = {
+                'is_online': is_active,
+                'group_name': room.group_name,
+                'user_messages': serializer.data
+            }
+            return Response(data, status=status.HTTP_200_OK)
+       else:
+            room =  GroupName.objects.get(group_name=room_name)
+            messages = UserMessage.objects.filter(group=room)
+            serializer = UserMessageSerializer(messages,many=True)
+            data = {
+                'is_online': is_active,
+                'group_name': room.group_name,
+                'user_messages': serializer.data
+            }
+            return Response(data, status=status.HTTP_200_OK)
 
 
 
@@ -516,6 +567,7 @@ class OrderProductView(APIView):
                             User = get_user_model()
                             vendor_user_model = get_object_or_404(User, email=vendor.vendor_email)
                             vendor_token = vendor_user_model.fcm_token
+                            #image_url = request.build_absolute_uri(your_model.file.url)
 
                             if vendor_token:
                                
@@ -523,6 +575,7 @@ class OrderProductView(APIView):
                                     notification=messaging.Notification(
                                         title=f'{vendor_user_model.first_name}, you are making sales!',
                                         body=f'You have a pending order from {request.user.first_name} {request.user.last_name}'
+                                        #image="https://yourdomain.com/media/sale-banner.jpg"
                                     ),
                                     token=vendor_token,
 

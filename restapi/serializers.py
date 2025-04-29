@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.conf import settings
-from .models import BuyerProfile, VendorProfile, Product, OrderDetail, ProductImage, ProductReview, Wallet, TransactionHistory
+from .models import BuyerProfile, VendorProfile, UserMessage, Product, OrderDetail, ProductImage, ProductReview, Wallet, TransactionHistory
 from django.contrib.auth import get_user_model
 from django.utils import timesince
 
@@ -22,11 +22,12 @@ class UserSerializer(serializers.ModelSerializer):
     transaction_pin = serializers.CharField(required=False)
     email_verified = serializers.BooleanField(required=False)
     firebase_user_id = serializers.CharField(required=False)
+    user_chat_id = serializers.UUIDField(required=False)
 
     class Meta:
         user = get_user_model()
         model = user
-        fields = ['id','phone_number', 'firebase_token', 'firebase_user_id', 'profile_image', 'fcm_token', 'email', 'email_verified', 'school', 'transaction_pin', 'first_name', 'last_name', 'password']
+        fields = ['id','phone_number', 'firebase_token', 'firebase_user_id', 'user_chat_id', 'profile_image', 'fcm_token', 'email', 'email_verified', 'school', 'transaction_pin', 'first_name', 'last_name', 'password']
     
     def to_internal_value(self, data):
         User = get_user_model()
@@ -62,10 +63,11 @@ class VendorSerializer(serializers.ModelSerializer):
     vendor_email = serializers.EmailField(required=False)
     vendor_id = serializers.UUIDField(required=False)
     firebase_user_id = serializers.CharField(required=False)
+    vendor_chat_id = serializers.UUIDField(required=False)
 
     class Meta:
         model = VendorProfile
-        fields = ['business_name', 'business_phone_number', 'vendor_id', 'firebase_user_id',  'vendor_email', 'business_description', 'business_address', 'account_number', 'profile_image']
+        fields = ['business_name', 'business_phone_number', 'vendor_id', 'vendor_chat_id', 'firebase_user_id',  'vendor_email', 'business_description', 'business_address', 'account_number', 'profile_image']
         read_only_fields = ['account_number']
 
 
@@ -138,6 +140,15 @@ class ProductReviewSerializer(serializers.ModelSerializer):
         model = ProductReview
         fields = ['id', 'user', 'product', 'first_name', 'last_name', 'rating', 'review', 'image', 'created_at', 'edited_at']
         read_only_fields = ['user', 'created_at', 'product', 'first_name', 'last_name', 'image', 'edited_at']
+
+
+class UserMessageSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(required=False)
+    message = serializers.CharField(required=False)
+    message_type = serializers.CharField(required=False)
+    class Meta:
+        model = UserMessage
+        fields = [ 'message', 'file', 'message_type', 'created_at']
 
 
 class WalletSerializer(serializers.ModelSerializer):

@@ -23,6 +23,10 @@ urlpatterns = [
     path('uploadproduct/', views.ProductUploadView.as_view(), name='upload_product'),
 
 
+    # API endpoint for initiating chat
+    path('initiatechat/', views.UserChatView.as_view(), name='initiate_chat'),
+
+
     # API endpoint for paying vendors after order otp verification
     path('vendorpayment/', views.VendorPayment.as_view(), name='vendor_payment'),
 

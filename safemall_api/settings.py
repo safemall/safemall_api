@@ -34,6 +34,7 @@ CSRF_TRUSTED_ORIGINS = ['https://safemall.pythonanywhere.com']
 # Application definition
 
 INSTALLED_APPS = [
+    'channels',
     'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -53,6 +54,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'restapi.middleware.ActiveUserCacheMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -75,7 +77,23 @@ TEMPLATES = [
     },
 ]
 
+ASGI_APPLICATION = 'safemall_api.asgi.application'
+
 WSGI_APPLICATION = 'safemall_api.wsgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.path.join(BASE_DIR, 'tmp_cache')
+    }
+
+}
 
 
 # Database

@@ -19,6 +19,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     school = models.CharField(max_length=1000, choices=SCHOOLS, default='')
     firebase_user_id = models.CharField(max_length=40, default='')
     firebase_token = models.TextField(max_length=1000, )
+    user_chat_id = models.UUIDField(default=uuid.uuid4)
     email_verified = models.BooleanField(default=False)
     transaction_pin = models.CharField(max_length=255, default='')
     fcm_token = models.TextField(max_length=200, default='')
@@ -86,7 +87,8 @@ class VendorProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     account_number = models.CharField(max_length=10, default='')
     business_phone_number = models.CharField(max_length=15, default='', null=True, blank=True)
-    vendor_id = models.UUIDField(default=uuid.uuid4())
+    vendor_id = models.UUIDField(default=uuid.uuid4)
+    vendor_chat_id = models.UUIDField(default=uuid.uuid4())
     vendor_email = models.EmailField(max_length=200, default='')
     business_name = models.CharField(max_length=500, default='')
     business_description = models.TextField(max_length=1000, default='')
@@ -131,6 +133,27 @@ class VendorProfile(models.Model):
         self.subscription_expires_at = None
         self.save()
 
+
+class GroupName(models.Model):
+    group_name = models.CharField(max_length=200)
+    user_1 = models.ForeignKey(settings.AUTH_USER_MODEL,null=True, blank=True,  related_name='first_initiator', on_delete=models.CASCADE)
+    user_2 = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE)
+
+
+class UserMessage(models.Model):
+    MESSAGE_TYPES = (
+        ('text', 'Text'),
+        ('file', 'File'),
+        ('voice', 'Voice message'),
+    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    message_type = models.CharField(max_length=10,choices=MESSAGE_TYPES, default='')
+    file = models.FileField(upload_to='chat_upload', blank=True, null=True)
+    group = models.ForeignKey(GroupName, on_delete=models.CASCADE, default='')
+    group_name = models.CharField(max_length=200, default='')
+    user_chat_id = models.UUIDField(default=uuid.uuid4())
+    message = models.TextField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 
