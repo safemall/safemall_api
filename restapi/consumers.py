@@ -53,6 +53,49 @@ class ChatConsumer(WebsocketConsumer):
                     'message': content
                 }
             )
+            from firebase_admin import messaging, exceptions
+            
+            if self.user == self.chatroom.user_1:
+                
+                recipient_user = self.chatroom.user_2
+                user_token = recipient_user.fcm_token
+                image_url = self.get_image_url(recipient_user.profile_image)
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title='message',
+                        body=content,
+                        image= image_url
+                    ),
+                    token=user_token,
+
+                    )
+                try:
+                    messaging.send(message)
+                except exceptions.FirebaseError as e:
+                    if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
+                        recipient_user.fcm_token = ''
+                        recipient_user.save()
+
+            elif self.user == self.chatroom.user_2:
+                
+                recipient_user = self.chatroom.user_1
+                user_token = recipient_user.fcm_token
+                image_url = self.get_image_url(recipient_user.profile_image)
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title='message',
+                        body=content,
+                        image= image_url
+                    ),
+                    token=user_token,
+
+                    )
+                try:
+                    messaging.send(message)
+                except exceptions.FirebaseError as e:
+                    if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
+                        recipient_user.fcm_token = ''
+                        recipient_user.save()
 
         elif message_type == 'file':
             filename = data.get('filename')
@@ -137,3 +180,12 @@ class ChatConsumer(WebsocketConsumer):
         self.send(text_data=json.dumps({
             'message': content
         }))
+
+    def get_image_url(self, file_field):
+        scheme = 'https' if self.scope.get('scheme') == 'https' else 'http'
+        host = self.scope.get('headers', [])
+        host_value = next(
+            (value.decode() for key, value in host if key == b'host'),
+            'localhost:8000'
+        )
+        return f"{scheme}://{host_value}{file_field.url}"
