@@ -1,7 +1,7 @@
 from channels.generic.websocket import WebsocketConsumer
 from asgiref.sync import async_to_sync
 from django.shortcuts import get_object_or_404
-from .models import GroupName, UserMessage
+
 from django.core.files.base import ContentFile
 import re
 import json
@@ -11,7 +11,7 @@ class ChatConsumer(WebsocketConsumer):
 
     def connect(self):
         self.room_group_name = self.scope['url_route']['kwargs']['chatroom_name']
-        
+        from .models import GroupName
         self.user = self.scope['user']
         if self.user.is_authenticated:
             self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
@@ -32,6 +32,7 @@ class ChatConsumer(WebsocketConsumer):
     def receive(self, text_data):
         data = json.loads(text_data)
         message_type = data.get('type')
+        from .models import UserMessage
 
         if message_type == 'text':
             content = data.get('content')
