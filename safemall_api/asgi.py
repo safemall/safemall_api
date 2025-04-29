@@ -8,14 +8,21 @@ https://docs.djangoproject.com/en/5.0/howto/deployment/asgi/
 """
 
 import os
-from channels.routing import ProtocolTypeRouter, URLRouter
-import restapi.routing
-from django.core.asgi import get_asgi_application
-from channels.auth import AuthMiddlewareStack
-from restapi.middleware import DRFTokenHeaderAuthMiddleware
 
+# Set Django settings module before anything else
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'safemall_api.settings')
 
+# Django and Channels imports
+from django.core.asgi import get_asgi_application
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
+
+# Custom routing and middleware
+from restapi.middleware import DRFTokenHeaderAuthMiddleware
+import restapi.routing
+
+
+# Application definition
 application = ProtocolTypeRouter({
     'http': get_asgi_application(),
     'websocket': DRFTokenHeaderAuthMiddleware(
