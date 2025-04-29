@@ -74,6 +74,10 @@ class ChatConsumer(WebsocketConsumer):
                         body=content,
                         image= image_url
                     ),
+                    android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                    image=image_url
+                        ),
                     token=user_token,
 
                     )
