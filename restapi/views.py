@@ -40,6 +40,11 @@ from django.utils import timezone
 
 # cred = credentials.Certificate('path/to/firebase_credentials.json')
 #firebase_admin.initialize_app(cred)
+firebase_json = os.environ.get('FIREBASE_CREDENTIALS')
+if firebase_json:
+    cred_dict = json.loads(firebase_json)
+    cred = credentials.Certificate(cred_dict)
+    firebase_admin.initialize_app(cred)
 
 #signup API for registering buyers
 class BuyerSignupApi(APIView):
