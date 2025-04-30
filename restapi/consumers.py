@@ -209,7 +209,7 @@ class ChatConsumer(WebsocketConsumer):
         }))
 
     def get_image_url(self, file_field):
-        scheme = 'https' if self.scope.get('scheme') == 'https' else 'http'
+        scheme = 'https'
         host = self.scope.get('headers', [])
         host_value = next(
             (value.decode() for key, value in host if key == b'host'),
