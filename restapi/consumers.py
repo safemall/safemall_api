@@ -68,7 +68,6 @@ class ChatConsumer(WebsocketConsumer):
                     name = f'{recipient_user.first_name} {recipient_user.last_name}'
                 
                 image_url = self.get_image_url(recipient_user.profile_image)
-                print(image_url)
                 message = messaging.Message(
                     notification=messaging.Notification(
                         title=name,
@@ -156,6 +155,77 @@ class ChatConsumer(WebsocketConsumer):
                 }
             )
 
+
+            from firebase_admin import messaging, exceptions
+            from .models import VendorProfile
+            
+            if self.user == self.chatroom.user_1:
+                
+                recipient_user = self.chatroom.user_2
+                user_token = recipient_user.fcm_token
+                
+                if VendorProfile.objects.filter(user=recipient_user).exists():
+                    vendor = VendorProfile.objects.get(user=recipient_user)
+                    name = vendor.business_name
+                else:
+                    name = f'{recipient_user.first_name} {recipient_user.last_name}'
+                
+                image_url = self.get_image_url(recipient_user.profile_image)
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=name,
+                        body='photo 📷',
+                        image= image_url
+                    ),
+                    android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                    image=image_url
+                    )
+                        ),
+                    token=user_token,
+
+                    )
+                try:
+                    messaging.send(message)
+                except exceptions.FirebaseError as e:
+                    if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
+                        recipient_user.fcm_token = ''
+                        recipient_user.save()
+
+            elif self.user == self.chatroom.user_2:
+                
+                recipient_user = self.chatroom.user_1
+                user_token = recipient_user.fcm_token
+                
+                if VendorProfile.objects.filter(user=recipient_user).exists():
+                    vendor = VendorProfile.objects.get(user=recipient_user)
+                    name = vendor.business_name
+                else:
+                    name = f'{recipient_user.first_name} {recipient_user.last_name}'
+                
+                image_url = self.get_image_url(recipient_user.profile_image)
+
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=name,
+                        body='photo 📷',
+                        image= image_url
+                    ),
+                    android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                    image=image_url
+                    )
+                        ),
+                    token=user_token,
+
+                    )
+                try:
+                    messaging.send(message)
+                except exceptions.FirebaseError as e:
+                    if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
+                        recipient_user.fcm_token = ''
+                        recipient_user.save()
+
         
         elif message_type == 'voicemessage':
             filename = data.get('filename')
@@ -191,6 +261,76 @@ class ChatConsumer(WebsocketConsumer):
                 }
             )
 
+            from firebase_admin import messaging, exceptions
+            from .models import VendorProfile
+            
+            if self.user == self.chatroom.user_1:
+                
+                recipient_user = self.chatroom.user_2
+                user_token = recipient_user.fcm_token
+                
+                if VendorProfile.objects.filter(user=recipient_user).exists():
+                    vendor = VendorProfile.objects.get(user=recipient_user)
+                    name = vendor.business_name
+                else:
+                    name = f'{recipient_user.first_name} {recipient_user.last_name}'
+                
+                image_url = self.get_image_url(recipient_user.profile_image)
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=name,
+                        body='voice 🔊',
+                        image= image_url
+                    ),
+                    android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                    image=image_url
+                    )
+                        ),
+                    token=user_token,
+
+                    )
+                try:
+                    messaging.send(message)
+                except exceptions.FirebaseError as e:
+                    if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
+                        recipient_user.fcm_token = ''
+                        recipient_user.save()
+
+            elif self.user == self.chatroom.user_2:
+                
+                recipient_user = self.chatroom.user_1
+                user_token = recipient_user.fcm_token
+                
+                if VendorProfile.objects.filter(user=recipient_user).exists():
+                    vendor = VendorProfile.objects.get(user=recipient_user)
+                    name = vendor.business_name
+                else:
+                    name = f'{recipient_user.first_name} {recipient_user.last_name}'
+                
+                
+                image_url = self.get_image_url(recipient_user.profile_image)
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=name,
+                        body='voice 🔊',
+                        image= image_url
+                    ),
+                    android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                    image=image_url
+                    )
+                        ),
+                    token=user_token,
+
+                    )
+                try:
+                    messaging.send(message)
+                except exceptions.FirebaseError as e:
+                    if 'NotRegistered' in str(e) or 'InvalidRegistration' in str(e):
+                        recipient_user.fcm_token = ''
+                        recipient_user.save()
+
         elif message_type == 'typing':
             async_to_sync(self.channel_layer.group_send)(
                 self.room_group_name,
@@ -200,6 +340,8 @@ class ChatConsumer(WebsocketConsumer):
                 }
             )
 
+
+
         
     def chat_message(self, event):
         content = event['message']
@@ -207,6 +349,8 @@ class ChatConsumer(WebsocketConsumer):
         self.send(text_data=json.dumps({
             'message': content
         }))
+
+
 
     def get_image_url(self, file_field):
         scheme = 'https'
