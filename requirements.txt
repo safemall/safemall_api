@@ -1,7 +1,6 @@
 Django
 djangorestframework
 pillow
-psycopg
 django-jazzmin
 requests
 python-dotenv
@@ -10,3 +9,5 @@ firebase-admin
 channels==3.0.5
 daphne
 whitenoise
+psycopg2-binary
+dj-database-url
