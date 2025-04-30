@@ -68,6 +68,7 @@ class ChatConsumer(WebsocketConsumer):
                     name = f'{recipient_user.first_name} {recipient_user.last_name}'
                 
                 image_url = self.get_image_url(recipient_user.profile_image)
+                print(image_url)
                 message = messaging.Message(
                     notification=messaging.Notification(
                         title=name,
