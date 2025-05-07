@@ -18,10 +18,11 @@ def get_user_from_token(token_key):
     
 
 class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
-    from django.contrib.auth.models import AnonymousUser
-    from rest_framework.authtoken.models import Token
     
     async def __call__(self, scope, receive, send):
+        from django.contrib.auth.models import AnonymousUser
+        from rest_framework.authtoken.models import Token
+    
         headers = dict(scope.get('headers', []))
 
         auth_header = headers.get(b'authorization', None)
