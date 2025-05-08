@@ -68,14 +68,22 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
-        'console': {'class': 'logging.StreamHandler'},
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
     },
     'loggers': {
-        'django': {'handlers': ['console'], 'level': 'DEBUG'},
-        'channels': {'handlers': ['console'], 'level': 'DEBUG'},
-        'channels_redis': {'handlers': ['console'], 'level': 'DEBUG'},
+        'channels_redis': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
     },
 }
+
 
 
 
@@ -116,6 +124,16 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+
+import redis
+
+try:
+    r = redis.Redis.from_url(os.environ.get('REDIS_URL'))
+    r.ping()
+    print("✅ Redis connection SUCCESSFUL.")
+except Exception as e:
+    print("❌ Redis connection FAILED:", e)
 
 
 CACHES = {
