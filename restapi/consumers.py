@@ -50,6 +50,7 @@ class ChatConsumer(WebsocketConsumer):
         data = json.loads(text_data)
         message_type = data.get('type')
         from .models import UserMessage
+        from .models import GroupName
         self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
 
         if message_type == 'text':
