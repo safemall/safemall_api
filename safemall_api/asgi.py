@@ -27,9 +27,11 @@ import restapi.routing
 # Application definition
 application = ProtocolTypeRouter({
     'http': get_asgi_application(),
-    'websocket': DRFTokenHeaderAuthMiddleware(
+    'websocket': AuthMiddlewareStack(
+    DRFTokenHeaderAuthMiddleware(
         URLRouter(
             restapi.routing.websocket_urlpatterns
         )
+    )
     )
 })
