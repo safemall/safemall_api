@@ -64,24 +64,24 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'safemall_api.urls'
 
 
-LOGGING = {
-    'version': 1,
-    'handlers': {
-        'console': {
-            'class':'logging.StreamHandler',
-        },
-    },
-    'loggers':{
-        'django':{
-            'handlers':['console'],
-            'level': 'DEBUG',
-        },
-        'channels': {
-            'handlers':['console'],
-            'level': 'DEBUG'
-        },
-    },
-}
+# LOGGING = {
+#     'version': 1,
+#     'handlers': {
+#         'console': {
+#             'class':'logging.StreamHandler',
+#         },
+#     },
+#     'loggers':{
+#         'django':{
+#             'handlers':['console'],
+#             'level': 'DEBUG',
+#         },
+#         'channels': {
+#             'handlers':['console'],
+#             'level': 'DEBUG'
+#         },
+#     },
+# }
 
 
 TEMPLATES = [
@@ -104,22 +104,23 @@ ASGI_APPLICATION = 'safemall_api.asgi.application'
 
 WSGI_APPLICATION = 'safemall_api.wsgi.application'
 
-# CHANNEL_LAYERS = {
-#     'default': {
-#         'BACKEND': 'channels.layers.InMemoryChannelLayer'
-#     }
-# }
-
-REDIS_URL = os.environ.get('REDIS_URL')
-
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [REDIS_URL],
-        },
-    },
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
 }
+
+REDIS_URL = os.environ.get('REDIS_URL')
+print('redis_url: ',REDIS_URL)
+
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             'hosts': [REDIS_URL],
+#         },
+#     },
+# }
 
 
 CACHES = {
