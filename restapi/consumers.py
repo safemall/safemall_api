@@ -18,16 +18,15 @@ class ChatConsumer(WebsocketConsumer):
         if self.user.is_authenticated:
             self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
             print('chatroom: ', self.chatroom)
-            try:
-                async_to_sync(self.channel_layer.group_add)(
-                    self.room_group_name,
-                    self.channel_name
-                )
-                print("Before accepting WebSocket connection.")
-                self.accept()
-                print("After accepting WebSocket connection.")
-            except Exception as e:
-                print(f"Error during WebSocket connection: {e}")
+            
+            # async_to_sync(self.channel_layer.group_add)(
+            #     self.room_group_name,
+            #     self.channel_name
+            # )
+            print("Before accepting WebSocket connection.")
+            self.accept()
+            print("After accepting WebSocket connection.")
+
 
 
     def disconnect(self, close_code):
