@@ -30,8 +30,6 @@ class ChatConsumer(WebsocketConsumer):
         self.room_group_name = self.scope['url_route']['kwargs']['chatroom_name']
         
         self.user = self.scope['user']
-        if self.user.is_authenticated:
-            self.chatroom = self.get_chatroom(self.room_group_name)
         async_to_sync(self.channel_layer.group_add)(
                  self.room_group_name,
                  self.channel_name
@@ -52,6 +50,7 @@ class ChatConsumer(WebsocketConsumer):
         data = json.loads(text_data)
         message_type = data.get('type')
         from .models import UserMessage
+        self.chatroom = async_to_sync(self.get_chatroom)(self.room_group_name)
 
         if message_type == 'text':
             content = data.get('content')
