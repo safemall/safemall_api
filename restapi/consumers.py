@@ -10,10 +10,10 @@ import base64
 
 class ChatConsumer(AsyncWebsocketConsumer):
 
-    @database_sync_to_async
-    def get_chatroom(self, group_name):
-        from .models import GroupName
-        return get_object_or_404(GroupName, group_name=group_name)
+    # @database_sync_to_async
+    # def get_chatroom(self, group_name):
+    #     from .models import GroupName
+    #     return get_object_or_404(GroupName, group_name=group_name)
 
     # @database_sync_to_async
     # def create_message(self, user, content, chatroom, group_name, user_chat_id):
