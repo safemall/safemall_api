@@ -40,7 +40,7 @@ class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
         else:
             scope['user'] = AnonymousUser()
         
-        return await super().__call__(scope, receive, send)
+        return await self.inner(scope, receive, send)
 
 
 class ActiveUserCacheMiddleware:
