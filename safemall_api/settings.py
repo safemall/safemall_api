@@ -95,7 +95,14 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            'hosts': ['redis://default:IrKUnqettRmqDRlBooMIrljfIywCXJTi@switchback.proxy.rlwy.net:40576'],
+            'hosts': [
+                     {
+                     'address':'switchback.proxy.rlwy.net',
+                     'port':'40576',
+                     'password':'IrKUnqettRmqDRlBooMIrljfIywCXJTi',
+                     'ssl':True
+                     }
+                     ],
         },
     },
 }
