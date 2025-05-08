@@ -1,4 +1,4 @@
-from channels.generic.websocket import WebsocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from django.shortcuts import get_object_or_404
@@ -8,12 +8,12 @@ import re
 import json
 import base64
 
-class ChatConsumer(WebsocketConsumer):
+class ChatConsumer(AsyncWebsocketConsumer):
 
-    @database_sync_to_async
-    def get_chatroom(self, group_name):
-        from .models import GroupName
-        return get_object_or_404(GroupName, group_name=group_name)
+    # @database_sync_to_async
+    # def get_chatroom(self, group_name):
+    #     from .models import GroupName
+    #     return get_object_or_404(GroupName, group_name=group_name)
 
     # @database_sync_to_async
     # def create_message(self, user, content, chatroom, group_name, user_chat_id):
@@ -26,7 +26,7 @@ class ChatConsumer(WebsocketConsumer):
     #         message=content
     #     )
 
-    def connect(self):
+    async def connect(self):
         # self.room_group_name = self.scope['url_route']['kwargs']['chatroom_name']
         
         # self.user = self.scope['user']
@@ -34,7 +34,7 @@ class ChatConsumer(WebsocketConsumer):
         #          self.room_group_name,
         #          self.channel_name
         #      )
-        self.accept()
+        await self.accept()
 
 
 
