@@ -19,7 +19,7 @@ class ChatConsumer(WebsocketConsumer):
         #         self.room_group_name,
         #         self.channel_name
         #     )
-            self.accept()
+        self.accept()
 
 
 
