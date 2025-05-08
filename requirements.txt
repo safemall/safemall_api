@@ -6,7 +6,7 @@ requests
 python-dotenv
 PyreBase4
 firebase-admin
-channels
+channels==4.2.0
 daphne
 whitenoise
 psycopg2-binary
