@@ -14,7 +14,7 @@ class ChatConsumer(WebsocketConsumer):
         from .models import GroupName
         self.user = self.scope['user']
         # if self.user.is_authenticated:
-        self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
+        #self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
         #     async_to_sync(self.channel_layer.group_add)(
         #         self.room_group_name,
         #         self.channel_name
