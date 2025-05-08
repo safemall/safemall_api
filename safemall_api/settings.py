@@ -64,24 +64,19 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'safemall_api.urls'
 
 
-# LOGGING = {
-#     'version': 1,
-#     'handlers': {
-#         'console': {
-#             'class':'logging.StreamHandler',
-#         },
-#     },
-#     'loggers':{
-#         'django':{
-#             'handlers':['console'],
-#             'level': 'DEBUG',
-#         },
-#         'channels': {
-#             'handlers':['console'],
-#             'level': 'DEBUG'
-#         },
-#     },
-# }
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': 'DEBUG'},
+        'channels': {'handlers': ['console'], 'level': 'DEBUG'},
+        'channels_redis': {'handlers': ['console'], 'level': 'DEBUG'},
+    },
+}
+
 
 
 TEMPLATES = [
