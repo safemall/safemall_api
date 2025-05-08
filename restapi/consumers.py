@@ -15,16 +15,16 @@ class ChatConsumer(WebsocketConsumer):
         from .models import GroupName
         return get_object_or_404(GroupName, group_name=group_name)
 
-    @database_sync_to_async
-    def create_message(self, user, content, chatroom, group_name, user_chat_id):
-        return UserMessage.objects.create(
-            user=user,
-            message_type='text',
-            group=chatroom,
-            group_name=group_name,
-            user_chat_id=user_chat_id,
-            message=content
-        )
+    # @database_sync_to_async
+    # def create_message(self, user, content, chatroom, group_name, user_chat_id):
+    #     return UserMessage.objects.create(
+    #         user=user,
+    #         message_type='text',
+    #         group=chatroom,
+    #         group_name=group_name,
+    #         user_chat_id=user_chat_id,
+    #         message=content
+    #     )
 
     def connect(self):
         self.room_group_name = self.scope['url_route']['kwargs']['chatroom_name']
@@ -56,7 +56,14 @@ class ChatConsumer(WebsocketConsumer):
         if message_type == 'text':
             content = data.get('content')
 
-            self.create_message(self.user, content, self.chatroom, self.chatroom.group_name,self.user.user_chat_id)
+            UserMessage.objects.create(
+                user=self.user,
+                message_type = 'text',
+                group=self.chatroom,
+                group_name = self.chatroom.group_name,
+                user_chat_id = self.user.user_chat_id,
+                message=content
+            )
 
             async_to_sync(self.channel_layer.group_send)(
                 self.room_group_name,
