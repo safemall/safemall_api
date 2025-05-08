@@ -1,5 +1,6 @@
 from channels.generic.websocket import WebsocketConsumer
 from asgiref.sync import async_to_sync
+from channels.db import database_sync_to_async
 from django.shortcuts import get_object_or_404
 
 from django.core.files.base import ContentFile
@@ -9,12 +10,17 @@ import base64
 
 class ChatConsumer(WebsocketConsumer):
 
+    @database_sync_to_async
+    def get_chatroom(self, group_name):
+        from .models import GroupName
+        return get_object_or_404(GroupName, group_name=group_name)
+
     def connect(self):
         self.room_group_name = self.scope['url_route']['kwargs']['chatroom_name']
-        from .models import GroupName
+        
         self.user = self.scope['user']
-        # if self.user.is_authenticated:
-        self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
+        if self.user.is_authenticated:
+            self.chatroom = self.get_chatroom(self.room_group_name)
         async_to_sync(self.channel_layer.group_add)(
                  self.room_group_name,
                  self.channel_name
