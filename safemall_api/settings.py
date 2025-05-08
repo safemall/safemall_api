@@ -107,33 +107,33 @@ ASGI_APPLICATION = 'safemall_api.asgi.application'
 
 WSGI_APPLICATION = 'safemall_api.wsgi.application'
 
-# CHANNEL_LAYERS = {
-#     'default': {
-#         'BACKEND': 'channels.layers.InMemoryChannelLayer'
-#     }
-# }
-
-REDIS_URL = os.environ.get('REDIS_URL')
-print('redis_url: ',REDIS_URL)
-
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [REDIS_URL],
-        },
-    },
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
 }
 
+# REDIS_URL = os.environ.get('REDIS_URL')
+# print('redis_url: ',REDIS_URL)
 
-import redis
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             'hosts': [REDIS_URL],
+#         },
+#     },
+# }
 
-try:
-    r = redis.Redis.from_url(os.environ.get('REDIS_URL'))
-    r.ping()
-    print("✅ Redis connection SUCCESSFUL.")
-except Exception as e:
-    print("❌ Redis connection FAILED:", e)
+
+# import redis
+
+# try:
+#     r = redis.Redis.from_url(os.environ.get('REDIS_URL'))
+#     r.ping()
+#     print("✅ Redis connection SUCCESSFUL.")
+# except Exception as e:
+#     print("❌ Redis connection FAILED:", e)
 
 
 CACHES = {
