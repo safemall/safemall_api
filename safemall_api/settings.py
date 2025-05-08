@@ -95,11 +95,11 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            'hosts': [os.environ.get('REDIS_URL')],
+            'hosts': ['redis://default:IrKUnqettRmqDRlBooMIrljfIywCXJTi@switchback.proxy.rlwy.net:40576'],
         },
     },
 }
-
+#os.environ.get('REDIS_URL')
 
 CACHES = {
     'default': {
