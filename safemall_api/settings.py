@@ -110,24 +110,17 @@ WSGI_APPLICATION = 'safemall_api.wsgi.application'
 #     }
 # }
 
-
+REDIS_URL = os.environ.get('REDIS_URL')
 
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            'hosts': [
-                     {
-                     'address':'switchback.proxy.rlwy.net',
-                     'port': 40576,
-                     'password':'IrKUnqettRmqDRlBooMIrljfIywCXJTi',
-                     'ssl':True
-                     }
-                     ],
+            'hosts': [REDIS_URL],
         },
     },
 }
-#os.environ.get('REDIS_URL')
+
 
 CACHES = {
     'default': {
