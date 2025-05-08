@@ -31,7 +31,7 @@ class ChatConsumer(WebsocketConsumer):
         
         self.user = self.scope['user']
         if self.user.is_authenticated:
-            self.chatroom = self.get_chatroom(self.room_group_name)
+            self.chatroom = async_to_sync(self.get_chatroom)(self.room_group_name)
         async_to_sync(self.channel_layer.group_add)(
                  self.room_group_name,
                  self.channel_name
