@@ -11,10 +11,13 @@ class ChatConsumer(WebsocketConsumer):
 
     def connect(self):
         self.room_group_name = self.scope['url_route']['kwargs']['chatroom_name']
+        print('chatroom_name: ', self.room_group_name)
         from .models import GroupName
         self.user = self.scope['user']
+        print('user: ', self.user)
         if self.user.is_authenticated:
             self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
+            print('chatroom: ', self.chatroom)
             async_to_sync(self.channel_layer.group_add)(
                 self.room_group_name,
                 self.channel_name
