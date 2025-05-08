@@ -60,7 +60,7 @@ class ChatConsumer(WebsocketConsumer):
                 user=self.user,
                 message_type = 'text',
                 group=self.chatroom,
-                group_name = self.chatroom.group_name,
+                group_name = self.room_group_name,
                 user_chat_id = self.user.user_chat_id,
                 message=content
             )
