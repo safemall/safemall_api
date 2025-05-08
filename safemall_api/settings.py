@@ -119,7 +119,7 @@ CHANNEL_LAYERS = {
             'hosts': [
                      {
                      'address':'switchback.proxy.rlwy.net',
-                     'port':'40576',
+                     'port': 40576,
                      'password':'IrKUnqettRmqDRlBooMIrljfIywCXJTi',
                      'ssl':True
                      }
