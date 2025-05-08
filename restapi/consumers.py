@@ -79,13 +79,13 @@ class ChatConsumer(WebsocketConsumer):
                 recipient_user = self.chatroom.user_2
                 user_token = recipient_user.fcm_token
                 
-                if VendorProfile.objects.filter(user=recipient_user).exists():
-                    vendor = VendorProfile.objects.get(user=recipient_user)
+                if VendorProfile.objects.filter(user=self.user).exists():
+                    vendor = VendorProfile.objects.get(user=self.user)
                     name = vendor.business_name
                 else:
-                    name = f'{recipient_user.first_name} {recipient_user.last_name}'
+                    name = f'{self.user.first_name} {self.user.last_name}'
                 
-                image_url = self.get_image_url(recipient_user.profile_image)
+                image_url = self.get_image_url(self.user.profile_image)
                 print(image_url)
                 message = messaging.Message(
                     notification=messaging.Notification(
@@ -113,13 +113,13 @@ class ChatConsumer(WebsocketConsumer):
                 recipient_user = self.chatroom.user_1
                 user_token = recipient_user.fcm_token
                 
-                if VendorProfile.objects.filter(user=recipient_user).exists():
-                    vendor = VendorProfile.objects.get(user=recipient_user)
+                if VendorProfile.objects.filter(user=self.user).exists():
+                    vendor = VendorProfile.objects.get(user=self.user)
                     name = vendor.business_name
                 else:
-                    name = f'{recipient_user.first_name} {recipient_user.last_name}'
+                    name = f'{self.user.first_name} {self.user.last_name}'
                 
-                image_url = self.get_image_url(recipient_user.profile_image)
+                image_url = self.get_image_url(self.user.profile_image)
                 print(image_url)
                 message = messaging.Message(
                     notification=messaging.Notification(
