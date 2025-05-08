@@ -56,7 +56,7 @@ class ChatConsumer(WebsocketConsumer):
         if message_type == 'text':
             content = data.get('content')
 
-            await self.create_message(self.user, content, self.chatroom, self.chatroom.group_name,self.user.user_chat_id)
+            self.create_message(self.user, content, self.chatroom, self.chatroom.group_name,self.user.user_chat_id)
 
             async_to_sync(self.channel_layer.group_send)(
                 self.room_group_name,
