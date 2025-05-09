@@ -7,6 +7,9 @@ urlpatterns = [
     path('buyersignup/', views.BuyerSignupApi.as_view(), name='signup_api'),
 
 
+    path('ping/', views.ping),
+
+
     # API endpoint for logging buyers and vendors in
     path('login/', views.LoginApi.as_view(), name='login_api'),
 
