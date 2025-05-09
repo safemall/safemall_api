@@ -38,6 +38,7 @@ import uuid
 from django.core.cache import cache
 from django.db.models import Avg
 from django.utils import timezone
+from django.http import JsonResponse
 # Create your views here.
 
 # cred = credentials.Certificate('path/to/firebase_credentials.json')
@@ -47,6 +48,9 @@ if firebase_json:
     cred_dict = json.loads(firebase_json)
     cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
+
+def ping(request):
+  return JsonResponse({'status':'ok'})
 
 #signup API for registering buyers
 class BuyerSignupApi(APIView):
