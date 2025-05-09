@@ -33,7 +33,9 @@ class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
                 try:
                     token_obj = await authenticate_token(token)
                     scope["user"] = token_obj.user #Attach user to the scope
-                except Exception:
+                except Exception as e:
+                    import logging
+                    logging.getLogger("django").error(f"Token error: {e}")
                     scope["user"] =  AnonymousUser()
             else:
                 scope['user'] = AnonymousUser()
