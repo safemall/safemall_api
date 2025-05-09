@@ -5,22 +5,22 @@ from django.utils.timezone import now
 
 
 # Make sure this function is defined before it's used in the middleware class
-# @database_sync_to_async
-# def authenticate_token(token_key):
+@database_sync_to_async
+def authenticate_token(token_key):
+    from django.contrib.auth.models import AnonymousUser
+    from rest_framework.authtoken.models import Token
     
-    
-#     try:
-#         token = Token.objects.get(key=token_key)
-#         return token.user
-#     except Token.DoesNotExist:
-#         return AnonymousUser()
+    try:
+        token = Token.objects.get(key=token_key)
+        return token.user
+    except Token.DoesNotExist:
+        return AnonymousUser()
     
 
 class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
     
     async def __call__(self, scope, receive, send):
         from django.contrib.auth.models import AnonymousUser
-        from rest_framework.authtoken.models import Token
         from urllib.parse import parse_qs
         
     
@@ -31,7 +31,7 @@ class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
     
             if token:
                 try:
-                    token_obj = await database_sync_to_async(Token.objects.get)(key=token)
+                    token_obj = await authenticate_token(token)
                     scope["user"] = token_obj.user #Attach user to the scope
                 except Token.DoesNotExist:
                     scope["user"] =  AnonymousUser()
