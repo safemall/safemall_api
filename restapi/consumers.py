@@ -31,13 +31,12 @@ class ChatConsumer(WebsocketConsumer):
         self.room_group_name = self.scope['url_route']['kwargs']['chatroom_name']
         
         self.user = self.scope['user']
+        print(self.user)
         async_to_sync(self.channel_layer.group_add)(
                  self.room_group_name,
                  self.channel_name
              )
         self.accept()
-        print('connected')
-        sleep(5)
 
 
 
