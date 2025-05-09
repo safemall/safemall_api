@@ -32,7 +32,7 @@ class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
             if token:
                 try:
                     token_obj = await authenticate_token(token)
-                    scope["user"] = token_obj.user #Attach user to the scope
+                    scope["user"] = token_obj #Attach user to the scope
                 except Exception as e:
                     import logging
                     logging.getLogger("django").error(f"Token error: {e}")
