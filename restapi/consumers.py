@@ -30,8 +30,7 @@ class ChatConsumer(WebsocketConsumer):
     def connect(self):
         self.room_group_name = self.scope['url_route']['kwargs']['chatroom_name']
         
-        self.user = self.scope['user']
-        print(self.user)
+        self.user = 'Anonymous user'
         async_to_sync(self.channel_layer.group_add)(
                  self.room_group_name,
                  self.channel_name
@@ -54,7 +53,14 @@ class ChatConsumer(WebsocketConsumer):
         from .models import UserMessage
         from .models import GroupName
         self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
+        if message_type == 'authenticate':
+            from rest_framework.authtoken.models import Token
+            token_key = data.get('token')
+            token_user = get_object_or_404(Token, key=token_key)
+            self.user = token_user.user
+            print(self.user)
 
+            
         if message_type == 'text':
             content = data.get('content')
 
