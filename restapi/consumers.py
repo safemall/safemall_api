@@ -2,6 +2,7 @@ from channels.generic.websocket import WebsocketConsumer
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from django.shortcuts import get_object_or_404
+from time import sleep
 
 from django.core.files.base import ContentFile
 import re
@@ -35,6 +36,7 @@ class ChatConsumer(WebsocketConsumer):
                  self.channel_name
              )
         self.accept()
+        sleep(5)
 
 
 
