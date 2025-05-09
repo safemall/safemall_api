@@ -33,7 +33,7 @@ class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
                 try:
                     token_obj = await authenticate_token(token)
                     scope["user"] = token_obj.user #Attach user to the scope
-                except Token.DoesNotExist:
+                except Exception:
                     scope["user"] =  AnonymousUser()
             else:
                 scope['user'] = AnonymousUser()
