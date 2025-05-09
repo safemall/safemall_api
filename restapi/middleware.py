@@ -2,19 +2,18 @@ from channels.middleware import BaseMiddleware
 from channels.db import database_sync_to_async
 from django.core.cache import cache
 from django.utils.timezone import now
-from urllib.parse import parse_qs
+
 
 # Make sure this function is defined before it's used in the middleware class
-@database_sync_to_async
-def authenticate_token(token_key):
-    from django.contrib.auth.models import AnonymousUser
-    from rest_framework.authtoken.models import Token
+# @database_sync_to_async
+# def authenticate_token(token_key):
     
-    try:
-        token = Token.objects.get(key=token_key)
-        return token.user
-    except Token.DoesNotExist:
-        return AnonymousUser()
+    
+#     try:
+#         token = Token.objects.get(key=token_key)
+#         return token.user
+#     except Token.DoesNotExist:
+#         return AnonymousUser()
     
 
 class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
@@ -22,18 +21,29 @@ class DRFTokenHeaderAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
         from django.contrib.auth.models import AnonymousUser
         from rest_framework.authtoken.models import Token
+        from urllib.parse import parse_qs
+        
+    
+        try:
+            #Extract the token from the query string
+            query_string = scope.get("query_string", b"").decode()
+            token = parse_qs(query_string).get("token",[None])[0]
+    
+            if token:
+                try:
+                    token_obj = await database_sync_to_async(Token.objects.get)(key=token)
+                    scope["user"] = token_obj.user #Attach user to the scope
+                except Token.DoesNotExist:
+                    scope["user"] =  AnonymousUser()
+            else:
+                scope['user'] = AnonymousUser()
 
-        #Extract the token from the query string
-        query_string = scope.get('query_string', b'').decode()
-        token = parse_qs(query_string).get('token',[None])[0]
+        except Exception as e:
+            import logging
+            logging.getLogger("django").error(f"Tokenmiddleware error: {e}")
+            scope["user"] = AnonymousUser()
 
-        if token:
-            user = await authenticate_token(token)
-            scope['user'] = user #Attach user to the scope
-        else:
-            scope['user'] = AnonymousUser()
-
-        await super().__call__(scope,receive, send)
+        return await super().__call__(scope,receive, send)
     
         # headers = dict(scope.get('headers', []))
 
