@@ -36,6 +36,7 @@ class ChatConsumer(WebsocketConsumer):
                  self.channel_name
              )
         self.accept()
+        print('connected')
         sleep(5)
 
 
