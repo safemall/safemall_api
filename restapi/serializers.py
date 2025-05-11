@@ -146,9 +146,10 @@ class UserMessageSerializer(serializers.ModelSerializer):
     file = serializers.FileField(required=False)
     message = serializers.CharField(required=False)
     message_type = serializers.CharField(required=False)
+    user_token = serializers.CharField(required=False)
     class Meta:
         model = UserMessage
-        fields = [ 'message', 'file', 'message_type', 'created_at']
+        fields = [ 'message', 'user_token', 'file', 'message_type', 'created_at']
 
 
 class WalletSerializer(serializers.ModelSerializer):

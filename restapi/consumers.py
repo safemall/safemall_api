@@ -31,6 +31,7 @@ class ChatConsumer(WebsocketConsumer):
         self.room_group_name = self.scope['url_route']['kwargs']['chatroom_name']
         
         self.user = 'Anonymous user'
+        self.token = ''
         async_to_sync(self.channel_layer.group_add)(
                  self.room_group_name,
                  self.channel_name
@@ -53,12 +54,13 @@ class ChatConsumer(WebsocketConsumer):
         from .models import UserMessage
         from .models import GroupName
         self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
+
         if message_type == 'authenticate':
             from rest_framework.authtoken.models import Token
             token_key = data.get('token')
             token_user = get_object_or_404(Token, key=token_key)
             self.user = token_user.user
-            print(self.user)
+            self.token = token_key
 
             
         if message_type == 'text':
@@ -68,6 +70,7 @@ class ChatConsumer(WebsocketConsumer):
                 user=self.user,
                 message_type = 'text',
                 group=self.chatroom,
+                user_token = self.token,
                 group_name = self.room_group_name,
                 user_chat_id = self.user.user_chat_id,
                 message=content
@@ -77,7 +80,8 @@ class ChatConsumer(WebsocketConsumer):
                 self.room_group_name,
                 {
                     'type': 'chat_message',
-                    'message': content
+                    'message': content,
+                    'user_token': self.token
                 }
             )
             from firebase_admin import messaging, exceptions
@@ -94,8 +98,11 @@ class ChatConsumer(WebsocketConsumer):
                 else:
                     name = f'{self.user.first_name} {self.user.last_name}'
                 
-                image_url = self.get_image_url(self.user.profile_image)
-                print(image_url)
+                user_image = self.user.profile_image
+                if user_image:
+                    image_url = self.get_image_url(user_image)
+                else:
+                    image_url = f'https://ui-avatars.com/api/?name={self.user.first_name}+{self.user.last_name}'
                 message = messaging.Message(
                     notification=messaging.Notification(
                         title=name,
@@ -128,8 +135,11 @@ class ChatConsumer(WebsocketConsumer):
                 else:
                     name = f'{self.user.first_name} {self.user.last_name}'
                 
-                image_url = self.get_image_url(self.user.profile_image)
-                print(image_url)
+                user_image = self.user.profile_image
+                if user_image:
+                    image_url = self.get_image_url(user_image)
+                else:
+                    image_url = f'https://ui-avatars.com/api/?name={self.user.first_name}+{self.user.last_name}'
                 message = messaging.Message(
                     notification=messaging.Notification(
                         title=name,
@@ -164,6 +174,7 @@ class ChatConsumer(WebsocketConsumer):
                 message_type='file',
                 user=self.user,
                 group=self.chatroom,
+                user_token=self.token,
                 group_name = self.chatroom.group_name,
                 user_chat_id = self.user.user_chat_id,
                 file=file,
@@ -179,6 +190,7 @@ class ChatConsumer(WebsocketConsumer):
                         'type': 'file',
                         'url': file_url,
                         'filename': filename,
+                        'user_token':self.token
                     }
                 }
             )
@@ -197,8 +209,12 @@ class ChatConsumer(WebsocketConsumer):
                     name = vendor.business_name
                 else:
                     name = f'{self.user.first_name} {self.user.last_name}'
-                
-                image_url = self.get_image_url(self.user.profile_image)
+
+                user_image = self.user.profile_image
+                if user_image:
+                    image_url = self.get_image_url(user_image)
+                else:
+                    image_url = f'https://ui-avatars.com/api/?name={self.user.first_name}+{self.user.last_name}'
                 message = messaging.Message(
                     notification=messaging.Notification(
                         title=name,
@@ -231,7 +247,11 @@ class ChatConsumer(WebsocketConsumer):
                 else:
                     name = f'{self.user.first_name} {self.user.last_name}'
                 
-                image_url = self.get_image_url(self.user.profile_image)
+                user_image = self.user.profile_image
+                if user_image:
+                    image_url = self.get_image_url(user_image)
+                else:
+                    image_url = f'https://ui-avatars.com/api/?name={self.user.first_name}+{self.user.last_name}'
 
                 message = messaging.Message(
                     notification=messaging.Notification(
@@ -270,6 +290,7 @@ class ChatConsumer(WebsocketConsumer):
                 message_type='voice',
                 user=self.user,
                 group=self.chatroom,
+                user_token=self.token,
                 group_name=self.chatroom.group_name,
                 user_chat_id=self.user.user_chat_id,
                 file=file,
@@ -285,6 +306,7 @@ class ChatConsumer(WebsocketConsumer):
                         'type': 'voice',
                         'url': file_url,
                         'filename': filename,
+                        'user_token': self.token
                     }
                 }
             )
@@ -303,7 +325,11 @@ class ChatConsumer(WebsocketConsumer):
                 else:
                     name = f'{self.user.first_name} {self.user.last_name}'
                 
-                image_url = self.get_image_url(self.user.profile_image)
+                user_image = self.user.profile_image
+                if user_image:
+                    image_url = self.get_image_url(user_image)
+                else:
+                    image_url = f'https://ui-avatars.com/api/?name={self.user.first_name}+{self.user.last_name}'
                 message = messaging.Message(
                     notification=messaging.Notification(
                         title=name,
@@ -337,7 +363,11 @@ class ChatConsumer(WebsocketConsumer):
                     name = f'{self.user.first_name} {self.user.last_name}'
                 
                 
-                image_url = self.get_image_url(self.user.profile_image)
+                user_image = self.user.profile_image
+                if user_image:
+                    image_url = self.get_image_url(user_image)
+                else:
+                    image_url = f'https://ui-avatars.com/api/?name={self.user.first_name}+{self.user.last_name}'
                 message = messaging.Message(
                     notification=messaging.Notification(
                         title=name,
