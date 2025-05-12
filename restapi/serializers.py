@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.conf import settings
-from .models import BuyerProfile, VendorProfile, UserMessage, Product, OrderDetail, ProductImage, ProductReview, Wallet, TransactionHistory
+from .models import BuyerProfile, VendorProfile, GroupName, UserMessage, Product, OrderDetail, ProductImage, ProductReview, Wallet, TransactionHistory
 from django.contrib.auth import get_user_model
 from django.utils import timesince
 
@@ -150,6 +150,16 @@ class UserMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserMessage
         fields = [ 'message', 'user_token', 'file', 'message_type', 'created_at']
+
+
+
+class UserChatListSerializer(serializers.ModelSerializer):
+    group_name = serializers.CharField(required=False)
+    last_updated = serializers.DateTimeField(required=False)
+
+    class Meta:
+        model = GroupName
+        fields = ['group_name', 'last_updated']
 
 
 class WalletSerializer(serializers.ModelSerializer):

@@ -10,7 +10,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.http import Http404
 from django.db.models.functions import Lower
-from .serializers import UserSerializer, UserMessageSerializer, BuyerSerializer, VendorSerializer, ProductSerializer,OrderDetailForVendorsSerializer, OrderDetailSerializer, ProductImageSerializer, ProductReviewSerializer, WalletSerializer, TransactionSerializer, TransferWalletSerializer
+from .serializers import UserSerializer, UserChatListSerializer, UserMessageSerializer, BuyerSerializer, VendorSerializer, ProductSerializer,OrderDetailForVendorsSerializer, OrderDetailSerializer, ProductImageSerializer, ProductReviewSerializer, WalletSerializer, TransactionSerializer, TransferWalletSerializer
 from .models import (BuyerProfile, TransactionOtpTokenGenerator, VendorProfile, Product,TransactionPercentage , EmailOtpTokenGenerator,
                      OrderDetail, ProductImage, ProductReview, GroupName, OtpTokenGenerator, Pending, Wallet, TransactionHistory, UserMessage)
 from django.shortcuts import get_object_or_404
@@ -38,6 +38,7 @@ import uuid
 from django.core.cache import cache
 from django.db.models import Avg
 from django.utils import timezone
+from django.db.models import Q
 from django.http import JsonResponse
 # Create your views here.
 
@@ -327,6 +328,42 @@ class UserChatView(APIView):
                 'user_messages': serializer.data
             }
             return Response(data, status=status.HTTP_200_OK)
+
+
+
+
+class UserChatListView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+
+    def get(self, request):
+        chat_data = []
+        chats = GroupName.objects.filter(Q(user_1=request.user) | Q(user_2=request.user)).order_by('-last_updated')      
+        recipient_user = ''
+
+        for chat in chats:
+            if chat.user_1 == request.user:
+                vendor = VendorProfile.objects.filter(user=chat.user_2).first()
+                
+                if vendor:
+                    recipient_user = vendor.business_name
+                else:
+                    recipient_user = f'{chat.user_2.first_name} {chat.user_2.last_name}'
+            else:
+                vendor = VendorProfile.objects.filter(user=chat.user_1).first()
+                
+                if vendor:
+                    recipient_user = vendor.business_name
+                else:
+                    recipient_user = f'{chat.user_1.first_name} {chat.user_1.last_name}'
+            serializer = UserChatListSerializer(chat)
+            data = {
+                'chat': serializer.data,
+                'recipient_user': recipient_user
+            }
+            chat_data.append(data)
+        return Response({'data': chat_data})
 
 
 

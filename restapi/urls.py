@@ -30,6 +30,10 @@ urlpatterns = [
     path('initiatechat/', views.UserChatView.as_view(), name='initiate_chat'),
 
 
+    # API endpoint for getting chatlists
+    path('chatlist/', views.UserChatListView.as_view(), name='chatlist'),
+
+
     # API endpoint for paying vendors after order otp verification
     path('vendorpayment/', views.VendorPayment.as_view(), name='vendor_payment'),
 

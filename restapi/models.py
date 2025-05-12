@@ -138,6 +138,7 @@ class GroupName(models.Model):
     group_name = models.CharField(max_length=200)
     user_1 = models.ForeignKey(settings.AUTH_USER_MODEL,null=True, blank=True,  related_name='first_initiator', on_delete=models.CASCADE)
     user_2 = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE)
+    last_updated = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
 
 class UserMessage(models.Model):

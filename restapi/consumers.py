@@ -53,7 +53,10 @@ class ChatConsumer(WebsocketConsumer):
         message_type = data.get('type')
         from .models import UserMessage
         from .models import GroupName
+        from django.utils import timezone
         self.chatroom = get_object_or_404(GroupName, group_name=self.room_group_name)
+        self.chatroom.last_updated = timezone.now()
+        self.chatroom.save()
 
         if message_type == 'authenticate':
             from rest_framework.authtoken.models import Token
@@ -80,10 +83,12 @@ class ChatConsumer(WebsocketConsumer):
                 self.room_group_name,
                 {
                     'type': 'chat_message',
-                    'message': content,
+                    'message': {'message': content,
                     'user_token': self.token
+                    }
                 }
             )
+
             from firebase_admin import messaging, exceptions
             from .models import VendorProfile
             
@@ -363,7 +368,6 @@ class ChatConsumer(WebsocketConsumer):
                     name = f'{self.user.first_name} {self.user.last_name}'
                 
                 
-                user_image = self.user.profile_image
                 if user_image:
                     image_url = self.get_image_url(user_image)
                 else:
