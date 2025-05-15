@@ -21,6 +21,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models.fields.files import ImageFieldFile
 from django.db import transaction
 from .paystack import Paystack
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework import status, generics
 from .transaction import Transaction, TransferFunds
 from django.contrib.auth.hashers import make_password, check_password
@@ -32,7 +33,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from django.views.decorators.vary import vary_on_headers
 import random 
-from .utils import is_user_online
+from .utils import is_user_online, CustomLimitOffsetPagination, CustomThrottle, UploadCustomThrottle
 from decimal import Decimal
 import uuid
 from django.core.cache import cache
@@ -53,9 +54,11 @@ if firebase_json:
 def ping(request):
   return JsonResponse({'status':'ok'})
 
+
+
 #signup API for registering buyers
 class BuyerSignupApi(APIView):
-    
+    throttle_classes = [CustomThrottle]
     
     def post(self, request):
         serializer = UserSerializer(data = request.data)
@@ -83,10 +86,10 @@ class BuyerSignupApi(APIView):
     
 
 
+
 #signup API for registering vendors
-
 class VendorSignupApi(APIView):
-
+    throttle_classes = [CustomThrottle]
     
     def post(self, request):
         serializer = UserSerializer(data = request.data)
@@ -117,7 +120,7 @@ class VendorSignupApi(APIView):
 # login API for logging both vendors and buyers in
 
 class LoginApi(APIView):
-
+    throttle_classes = [CustomThrottle]
     
     def post(self, request):
         email = request.data['email']
@@ -186,7 +189,6 @@ class VendorStoreApi(APIView):
         else:
             serializer = VendorSerializer(user)
             data = {
-                'firebase_token': request.user.firebase_user_id,
                 'data': serializer.data
             }
             return Response(data)
@@ -205,7 +207,6 @@ class VendorStoreApi(APIView):
         vendor.save()
         Vendorstore = VendorSerializer(vendor)
         data = {
-            'firebase_token': request.user.firebase_user_id,
             'vendor': Vendorstore.data
         }
         return Response(data, status=status.HTTP_201_CREATED)
@@ -233,7 +234,6 @@ class VendorStoreApi(APIView):
                     product.vendor_image = request.data['profile_image']
                     product.save()
             data = {
-            'firebase_token': request.user.firebase_user_id,
             'vendor': serializer.data
         }
             return Response(data, status=status.HTTP_200_OK)
@@ -271,6 +271,8 @@ class SubscriptionView(APIView):
 
     def get(self, request):
         vendor = get_object_or_404(VendorProfile, user=request.user)
+        request.user.email_verified = True
+        request.user.save()
         vendor.subscripe_for_two_hours()
         data = {
             
@@ -311,23 +313,27 @@ class UserChatView(APIView):
 
             room =  GroupName.objects.create(group_name=room_name, user_1=user, user_2=user2)
             messages = UserMessage.objects.filter(group=room)
-            serializer = UserMessageSerializer(messages,many=True)
+            paginator = CustomLimitOffsetPagination()
+            paginated_product = paginator.paginate_queryset(messages, request)
+            serializer = UserMessageSerializer(paginated_product,many=True)
             data = {
                 'is_online': is_active,
                 'group_name': room.group_name,
                 'user_messages': serializer.data
             }
-            return Response(data, status=status.HTTP_200_OK)
+            return paginator.get_paginated_response(serializer.data, extra_data=data)
        else:
             room =  GroupName.objects.get(group_name=room_name)
             messages = UserMessage.objects.filter(group=room)
-            serializer = UserMessageSerializer(messages,many=True)
+            paginator = CustomLimitOffsetPagination()
+            paginated_product = paginator.paginate_queryset(messages, request)
+            serializer = UserMessageSerializer(paginated_product,many=True)
             data = {
                 'is_online': is_active,
                 'group_name': room.group_name,
                 'user_messages': serializer.data
             }
-            return Response(data, status=status.HTTP_200_OK)
+            return paginator.get_paginated_response(serializer.data, extra_data=data)
 
 
 
@@ -371,7 +377,8 @@ class ProductUploadView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-    
+    throttle_classes = [UploadCustomThrottle]
+
     def post(self, request):
         user = request.user
         vendor = get_object_or_404(VendorProfile, user=user)
@@ -404,7 +411,6 @@ class ProductUploadView(APIView):
                                 
                             product_serializer = ProductSerializer(product)
                             data = {
-                                'firebase_token': request.user.firebase_user_id,
                                 'data': product_serializer.data
                                 }
                             return Response(data , status=status.HTTP_201_CREATED)
@@ -433,7 +439,6 @@ class ProductDetailsView(APIView):
         vendor = get_object_or_404(VendorProfile, vendor_id=product.vendor_identity)
         serializer = ProductSerializer(product)
         data = {
-            'firebase_token': vendor.firebase_user_id,
             'data': serializer.data
         }
         return Response(data)
@@ -509,7 +514,6 @@ class ProductDetailsView(APIView):
                                 for image in new_image:
                                     ProductImage.objects.create(product=product, image=image)
                         data = {
-                            'firebase_token': request.user.firebase_user_id,
                             'message': 'product updated',
                             'data': serializer.data
                         }
@@ -745,11 +749,10 @@ class TransactionHistoryView(APIView):
     def get(self, request):
         transaction_history = TransactionHistory.objects.filter(user=request.user).order_by('-created_at')
         if transaction_history:
-            serializer = TransactionSerializer(transaction_history, many=True)
-            data = {
-                'data': serializer.data
-            }
-            return Response(data)
+            paginator = LimitOffsetPagination()
+            paginated_product = paginator.paginate_queryset(transaction_history, request)
+            serializer = TransactionSerializer(paginated_product, many=True)
+            return paginator.get_paginated_response(serializer.data)
         else:
             data = {
                 'data': []
@@ -844,19 +847,18 @@ class TranferView(APIView):
 
 
 
-class ClothesPageView(APIView):
+class FashionPageView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         user = request.user
-        clothpage = Product.objects.filter(product_category='clothes').order_by('-uploaded_at')
-        clothserializer = ProductSerializer(clothpage, many=True)
-        data = {
-                'data': clothserializer.data
-            }
-        return Response(data)
+        fashionpage = Product.objects.filter(product_category='fashion').order_by('-uploaded_at')
+        paginator = LimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(fashionpage, request)
+        fashionserializer = ProductSerializer(paginated_product, many=True)
+        return paginator.get_paginated_response(fashionserializer.data)
     
 
 
@@ -868,12 +870,13 @@ class FoodPageView(APIView):
     def get(self, request):
         user = request.user
         foodpage = Product.objects.filter(product_category='food').order_by('-uploaded_at')
-        foodserializer = ProductSerializer(foodpage, many=True)
-        data = {
-                'data': foodserializer.data
-            }
-        return Response(data)
+        paginator = LimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(foodpage, request)
+        foodserializer = ProductSerializer(paginated_product, many=True)
+        return paginator.get_paginated_response(foodserializer.data)
     
+
+
 
 class FootwearsPageView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -883,27 +886,29 @@ class FootwearsPageView(APIView):
     def get(self, request):
         user = request.user
         footwearpage = Product.objects.filter(product_category='footwears').order_by('-uploaded_at')
-        footwearserializer = ProductSerializer(footwearpage, many=True)
-        data = {
-                'data': footwearserializer.data
-            }
-        return Response(data)
+        paginator = LimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(footwearpage, request)
+        footwearserializer = ProductSerializer(paginated_product, many=True)
+        return paginator.get_paginated_response(footwearserializer.data)
     
 
-class AccessoriesPageView(APIView):
+
+
+class PhoneandAccessoriesPageView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
     def get(self, request):
         user = request.user
-        accessoriespage = Product.objects.filter(product_category='accessories').order_by('-uploaded_at')
-        accessoriesserializer = ProductSerializer(accessoriespage, many=True)
-        data = {
-                'data': accessoriesserializer.data
-            }
-        return Response(data)
+        accessoriespage = Product.objects.filter(product_category='phones and accessories').order_by('-uploaded_at')
+        paginator = LimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(accessoriespage, request)
+        accessoriesserializer = ProductSerializer(paginated_product, many=True)
+        return paginator.get_paginated_response(accessoriesserializer.data)
     
+
+
 
 class BeautyPageView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -913,12 +918,13 @@ class BeautyPageView(APIView):
     def get(self, request):
         user = request.user
         beautypage = Product.objects.filter(product_category='beauty').order_by('-uploaded_at')
-        beautyserializer = ProductSerializer(beautypage, many=True)
-        data = {
-                'data': beautyserializer.data
-            }
-        return Response(data)
+        paginator = LimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(beautypage, request)
+        beautyserializer = ProductSerializer(paginated_product, many=True)
+        return paginator.get_paginated_response(beautyserializer.data)
     
+
+
 
 class HouseholdPageView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -928,12 +934,60 @@ class HouseholdPageView(APIView):
     def get(self, request):
         user = request.user
         householdpage = Product.objects.filter(product_category='household').order_by('-uploaded_at')
-        householdserializer = ProductSerializer(householdpage, many=True)
-        data = {
-                'data': householdserializer.data
-            }
-        return Response(data)
+        paginator = LimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(householdpage, request)
+        householdserializer = ProductSerializer(paginated_product, many=True)
+        return paginator.get_paginated_response(householdserializer.data)
     
+
+
+
+
+class ElectronicsPageView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
+    def get(self, request):
+        user = request.user
+        electronicspage = Product.objects.filter(product_category='electronics').order_by('-uploaded_at')
+        paginator = LimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(electronicspage, request)
+        electronicsserializer = ProductSerializer(paginated_product, many=True)
+        return paginator.get_paginated_response(electronicsserializer.data)
+
+
+
+class GroceriesPageView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
+    def get(self, request):
+        user = request.user
+        groceriespage = Product.objects.filter(product_category='groceries').order_by('-uploaded_at')
+        paginator = LimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(groceriespage, request)
+        groceriesserializer = ProductSerializer(paginated_product, many=True)
+        return paginator.get_paginated_response(groceriesserializer)
+
+
+
+class ServicelistingPageView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    #@method_decorator(cache_page(60 * 15, key_prefix='product_category'))
+    def get(self, request):
+        user = request.user
+        servicelistingpage = Product.objects.filter(product_category='service listing').order_by('-uploaded_at')
+        paginator = LimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(servicelistingpage, request)
+        servicelistingserializer = ProductSerializer(paginated_product, many=True)
+        return paginator.get_paginated_response(servicelistingserializer.data)
+
+
+
 
 class NewArrivalsView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -950,6 +1004,7 @@ class NewArrivalsView(APIView):
             }
         return Response(data)
     
+
 
 class ExploreView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -985,6 +1040,7 @@ class FeaturedProductView(APIView):
             'data':product_serializer.data
         }
         return Response(data)
+    
 
 
 class VendorPageView(APIView):
@@ -1000,15 +1056,16 @@ class VendorPageView(APIView):
         if value is not None:
             vendor_rating = round(value, 1)
         vendor_serializer = VendorSerializer(vendor)
-        product_serializer = ProductSerializer(product, many=True)
+        paginator = CustomLimitOffsetPagination()
+        paginated_product = paginator.paginate_queryset(product, request)
+        product_serializer = ProductSerializer(paginated_product, many=True)
         data = {
-            'firebase_token': vendor.firebase_user_id,
             'vendor_data': vendor_serializer.data,
-            'vendor_rating': vendor_rating,
-            'product_data': product_serializer.data            
+            'vendor_rating': vendor_rating,            
         }
-        return Response(data)
+        return paginator.get_paginated_response(product_serializer.data, extra_data=data)
     
+
 
 
 class ProfileDetails(APIView):
@@ -1075,16 +1132,16 @@ class ProfileDetails(APIView):
 class SearchProduct(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UploadCustomThrottle]
 
     def get(self, request):
         search_query = request.GET.get('search')
         if search_query is not None:
             product = Product.objects.filter(product_name__icontains=search_query).order_by(Lower('product_name'))  or Product.objects.filter(vendor_name__icontains=search_query).order_by(Lower('product_name')) 
-            serializer = ProductSerializer(product, many=True)
-            data = {
-                'data': serializer.data
-            }
-            return Response(data)
+            paginator = LimitOffsetPagination()
+            paginated_product = paginator.paginate_queryset(product, request)
+            serializer = ProductSerializer(paginated_product, many=True)
+            return paginator.get_paginated_response(serializer.data)
         else:
             data = {
                 'data': []
@@ -1106,15 +1163,16 @@ class ProductReviewView(APIView):
         rating_avg = 0.0
     
         if value is not None:
+            paginator = CustomLimitOffsetPagination()
+            paginated_product = paginator.paginate_queryset(review, request)
             rating_avg = round(value, 1)
-            serializer = ProductReviewSerializer(review, many=True)
+            serializer = ProductReviewSerializer(paginated_product, many=True)
             total_number = review.count()
             data = {
-                'reviews': serializer.data,
                 'total': total_number,
                 'average rating': rating_avg
             }
-            return Response(data)
+            return paginator.get_paginated_response(serializer.data, extra_data=data)
         else:
             data = {
                 'message': []
@@ -1127,6 +1185,7 @@ class ProductReviewView(APIView):
 class PostProductReviewView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UploadCustomThrottle]
 
     def post(self, request, product_id, order_id):
         user = request.user
@@ -1159,6 +1218,8 @@ class PostProductReviewView(APIView):
 class UpdateProductReviewView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UploadCustomThrottle]
+
 
     def patch(self, request, order_pk, product_id):
         rating = request.data.get('rating', 0)
@@ -1225,11 +1286,10 @@ class UserReviewsView(APIView):
         user_reviews = ProductReview.objects.filter(is_deleted=False)
         personal_user_reviews =  user_reviews.filter(user=request.user).order_by('-created_at')  
         if personal_user_reviews:
-            serializer = ProductReviewSerializer(user_reviews, many=True)
-            data = {
-                'data': serializer.data
-            }
-            return Response(data)
+            paginator = LimitOffsetPagination()
+            paginated_product = paginator.paginate_queryset(personal_user_reviews, request)
+            serializer = ProductReviewSerializer(paginated_product, many=True)
+            return paginator.get_paginated_response(serializer.data)
         else:
             data = {
                 'data': []
@@ -1252,11 +1312,10 @@ class VendorOrderView(APIView):
         if vendor.is_subscriped():
             vendor_order = OrderDetail.objects.filter(vendor_id=vendor_id).order_by('-created_at')
             if vendor_order:
-                serializer = OrderDetailForVendorsSerializer(vendor_order, many=True)
-                data = {
-                'data': serializer.data
-                        }
-                return Response(data)
+                paginator = LimitOffsetPagination()
+                paginated_product = paginator.paginate_queryset(vendor_order, request)
+                serializer = OrderDetailForVendorsSerializer(paginated_product, many=True)
+                return paginator.get_paginated_response(serializer.data)
             else:
                 data = {
                 'data': 'no order yet'
@@ -1270,6 +1329,7 @@ class VendorOrderView(APIView):
        
         
 
+
 class BuyerOrderView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -1278,17 +1338,17 @@ class BuyerOrderView(APIView):
         user = request.user
         order = OrderDetail.objects.filter(user=user).order_by('-created_at')
         if order:
-            serializer = OrderDetailSerializer(order, many=True)
-            data = {
-                'data': serializer.data
-                        }
-            return Response(data)
+            paginator = LimitOffsetPagination()
+            paginated_product = paginator.paginate_queryset(order, request)
+            serializer = OrderDetailSerializer(paginated_product, many=True)
+            return paginator.get_paginated_response(serializer.data)
         else:
             data = {
                 'data': []
                         }
             return Response(data)
         
+
 
 class InventoryView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -1303,14 +1363,12 @@ class InventoryView(APIView):
         if vendor.is_subscriped():
             product = Product.objects.filter(vendor_identity=vendor_id).order_by('-uploaded_at')
             if product:
-                serializer = ProductSerializer(product, many=True)
-                data = {
-                    'firebase_token': request.user.firebase_user_id,
-                    'message': 'Products fetched successfully',
-                    'data':serializer.data}
-                return Response(data)
+                paginator = LimitOffsetPagination()
+                paginated_product = paginator.paginate_queryset(product, request)
+                serializer = ProductSerializer(paginated_product, many=True)
+                return paginator.get_paginated_response(serializer.data)
             else:
-                data = { 'firebase_token': request.user.firebase_user_id,
+                data = {
                             'message': 'no product(s) yet',
                                 'data':[]
                                 }

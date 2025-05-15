@@ -161,12 +161,15 @@ class UserMessage(models.Model):
 
 class Product(models.Model):
     CATEGORIES = (
-        ('clothes', 'clothes'),
+        ('fashion', 'fashion'),
         ('footwears', 'footwears'),
-        ('accessories', 'accessories'),
+        ('phones and accessories', 'phones and accessories'),
+        ('electronics', 'electronics'),
         ('beauty', 'beauty'),
         ('household', 'household'),
-        ('food', 'food')
+        ('groceries', 'groceries'),
+        ('food', 'food'),
+        ('service listing', 'service listing')
     )
     product_name = models.CharField(max_length=200, null=True, blank=True)
     product_description = models.TextField(max_length=1000, null=True, blank=True)
@@ -176,14 +179,14 @@ class Product(models.Model):
     product_price = models.FloatField()
     discounted_amount = models.FloatField(default=0)
     discounted_price = models.FloatField(default=0)
-    school = models.CharField(default='', max_length=1000, blank=True)
+    school = models.CharField(default='', max_length=1000, blank=True, db_index=True)
     percentage_discount = models.IntegerField(default=0)
-    product_category = models.CharField(choices=CATEGORIES, default='', max_length=50)
+    product_category = models.CharField(choices=CATEGORIES, default='', max_length=50, db_index=True)
     stock = models.IntegerField(default=0)
     quantity_sold = models.IntegerField(default=0)
     average_rating = models.FloatField(default=0)
     vendor_image = models.ImageField(upload_to='image', null=True, blank=True, default='')
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
@@ -224,12 +227,12 @@ class OrderDetail(models.Model):
     product_image = models.ImageField(upload_to='image', default='', null=True, blank=True)
     product_price = models.FloatField()
     vendor_name = models.CharField(max_length=500, null=True, blank=True)
-    vendor_id = models.CharField(max_length=90,null=True, blank=True )
+    vendor_id = models.CharField(max_length=90,null=True, blank=True, db_index=True )
     product_quantity = models.IntegerField()
     total_price = models.FloatField()
     order_otp_token = models.CharField(max_length=8,default='')
     payment_status = models.CharField(max_length=60, choices=PAYMENT_STATUS, default='Paid, Pending Confirmation')
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
 
     def __str__(self):
@@ -257,9 +260,9 @@ class ProductReview(models.Model):
     rating = models.IntegerField(choices=RATING, default=1)
     review = models.TextField(max_length=1000)
     image = models.ImageField(upload_to='image', null=True, blank=True, default='')
-    is_deleted = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False, db_index=True)
     edited_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     def __str__(self):
         return self.first_name
@@ -268,7 +271,7 @@ class ProductReview(models.Model):
 
 class Wallet(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='user_wallet')
-    account_number = models.CharField(max_length=10)
+    account_number = models.CharField(max_length=10, db_index=True)
     first_name = models.CharField(max_length=200)
     last_name = models.CharField(max_length=200)
     funds = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -290,12 +293,12 @@ class Wallet(models.Model):
 
 class Pending(models.Model):
     product_id = models.IntegerField(default=0)
-    order_id = models.CharField(max_length=80)
-    account_number = models.CharField(max_length=10, default='')
+    order_id = models.CharField(max_length=80, db_index=True)
+    account_number = models.CharField(max_length=10, default='', db_index=True)
     otp_token = models.CharField(max_length=255)
     quantity = models.IntegerField(default=0)
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    reverse_payment = models.BooleanField(default=False)
+    reverse_payment = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 

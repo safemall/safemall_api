@@ -61,7 +61,7 @@ urlpatterns = [
 
 
     # API endpoint for viewing clothes category
-    path('clothescategory/', views.ClothesPageView.as_view(), name='clothes_category'),
+    path('fashioncategory/', views.FashionPageView.as_view(), name='fashion_category'),
 
 
     # API endpoint for viewing food category
@@ -72,8 +72,15 @@ urlpatterns = [
     path('footwearscategory/', views.FootwearsPageView.as_view(), name='footwear_category'),
 
 
+    # API endpoint for viewing electronics category
+    path('electronicscategory/', views.ElectronicsPageView.as_view(), name='electronics_category'),
+
+
+    # API endpoint for viewing servicelisting category
+    path('servicelistingcategory/', views.ServicelistingPageView.as_view(), name='service_listing_category'),
+
     # API endpoint for viewing accessories category
-    path('accessoriescategory/', views.AccessoriesPageView.as_view(), name='accessories_category'),
+    path('phonesandaccessoriescategory/', views.PhoneandAccessoriesPageView.as_view(), name='phone_and_accessories_category'),
 
 
     # API endpoint for viewing beauty category
@@ -82,6 +89,10 @@ urlpatterns = [
 
     # API endpoint for viewing household category
     path('householdcategory/', views.HouseholdPageView.as_view(), name='household_category'),
+
+
+    # API endpoint for viewing groceries category
+    path('groceriescategory/', views.GroceriesPageView.as_view(), name='groceries_category'),
 
 
     # API endpoint for viewing new arrivals
